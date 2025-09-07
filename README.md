@@ -4,6 +4,9 @@
 
 コーヒーブレイクのようなゆったりとした時間に、世界の興味深い話題を日本語で楽しめるニュースリーダーです。
 
+## 🌐 Live Demo
+**[https://world-news-reader-ado6.vercel.app/](https://world-news-reader-ado6.vercel.app/)**
+
 ## プロジェクト概要
 
 World News Readerは、The GuardianやThe New York Timesなどの信頼できる国際メディアから厳選された記事を、読みやすい日本語で提供するWebアプリケーションです。急がず、じっくりと読める記事構成で、英語学習にもお使いいただけます。
