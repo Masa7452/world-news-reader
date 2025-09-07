@@ -23,16 +23,6 @@ export const TopBar = () => {
           
           <div className="flex flex-1 items-center justify-end space-x-4">
             <nav className="hidden md:flex items-center space-x-6">
-              <Link href="/tags">
-                <button 
-                  className="px-3 py-2 text-sm font-medium transition-colors rounded-lg text-primary"
-                  style={{ color: 'var(--text)' }}
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-                >
-                  タグ
-                </button>
-              </Link>
               <Link href="/about">
                 <button 
                   className="px-3 py-2 text-sm font-medium transition-colors rounded-lg text-primary"

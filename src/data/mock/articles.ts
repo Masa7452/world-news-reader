@@ -139,14 +139,9 @@ EUは「グリーンディール2.0」を発表し、2030年までにカーボ�
     tags: ["気候変動", "サステナビリティ", "国際協力", "環境政策", "再生可能エネルギー", "カーボンニュートラル"],
     sources: [
       {
-        name: "The Guardian",
-        url: "https://www.theguardian.com/environment/climate-summit",
-        date: "2025-01-15"
-      },
-      {
         name: "The New York Times",
-        url: "https://www.nytimes.com/climate-summit-2025",
-        date: "2025-01-15"
+        url: "https://www.nytimes.com/2025/09/07/us/politics/trump-congresss-power.html",
+        date: "2025-09-07"
       }
     ],
     createdAt: "2025-01-15T09:00:00Z",
@@ -349,8 +344,8 @@ AI技術は医療分野に革命をもたらし、診断精度の向上、医療
     sources: [
       {
         name: "The New York Times",
-        url: "https://www.nytimes.com/ai-healthcare",
-        date: "2025-01-14"
+        url: "https://www.nytimes.com/2025/09/07/world/middleeast/homeless-and-hungry-gazans-fear-a-repeat-of-1948-history.html",
+        date: "2025-09-07"
       }
     ],
     createdAt: "2025-01-14T10:30:00Z",
@@ -634,8 +629,8 @@ AI技術は医療分野に革命をもたらし、診断精度の向上、医療
     sources: [
       {
         name: "The Guardian",
-        url: "https://www.theguardian.com/fashion/sustainable",
-        date: "2025-01-13"
+        url: "https://www.theguardian.com/fashion/2024/nov/27/sustainable-fashion-brands-climate-crisis",
+        date: "2024-11-27"
       }
     ],
     createdAt: "2025-01-13T08:00:00Z",
@@ -950,13 +945,8 @@ AI技術は医療分野に革命をもたらし、診断精度の向上、医療
     sources: [
       {
         name: "The New York Times",
-        url: "https://www.nytimes.com/space-tourism",
-        date: "2025-01-12"
-      },
-      {
-        name: "The Guardian",
-        url: "https://www.theguardian.com/science/space-travel",
-        date: "2025-01-12"
+        url: "https://www.nytimes.com/2024/12/15/science/spacex-starship-flight-test.html",
+        date: "2024-12-15"
       }
     ],
     createdAt: "2025-01-12T11:00:00Z",
@@ -1303,8 +1293,8 @@ AI技術は医療分野に革命をもたらし、診断精度の向上、医療
     sources: [
       {
         name: "The Guardian",
-        url: "https://www.theguardian.com/mental-health",
-        date: "2025-01-11"
+        url: "https://www.theguardian.com/society/2024/dec/14/mental-health-crisis-young-people",
+        date: "2024-12-14"
       }
     ],
     createdAt: "2025-01-11T07:30:00Z",
@@ -1312,5 +1302,53 @@ AI技術は医療分野に革命をもたらし、診断精度の向上、医療
     publishedAt: "2025-01-11T07:30:00Z",
     status: "PUBLISHED",
     thumbnail: "/images/mental-health.jpg"
+  },
+  {
+    id: "6",
+    slug: "trump-congress-power-2025",
+    title: "トランプ氏、議会の権限を踏みにじる：共和党からの抵抗は限定的",
+    summary: [
+      "行政府による監視・歳出・議会権限の軽視が続く",
+      "共和党指導部は大きな対抗策を打てず",
+      "権力分立の形骸化を懸念する声が拡大"
+    ],
+    bodyMdx: `米紙The New York Timesによると、トランプ政権は議会の監視機能に対して強硬姿勢を取り続け、共和党内部からの抵抗も限定的だと指摘されています。国家安全保障、歳出、監督などの分野で、議会軽視が続くことへの懸念が指摘されています。`,
+    category: "政治",
+    tags: ["アメリカ", "政治", "議会", "共和党"],
+    sources: [
+      {
+        name: "The New York Times",
+        url: "https://www.nytimes.com/2025/09/07/us/politics/trump-congresss-power.html",
+        date: "2025-09-07"
+      }
+    ],
+    createdAt: "2025-09-07T00:00:00Z",
+    updatedAt: "2025-09-07T00:00:00Z",
+    publishedAt: "2025-09-07T00:00:00Z",
+    status: "PUBLISHED"
+  },
+  {
+    id: "7",
+    slug: "russian-strike-kyiv-2025",
+    title: "ロシアの攻撃、キーウで被害：ウクライナ情勢の緊迫",
+    summary: [
+      "ロシアのミサイル攻撃がウクライナの首都キーウを直撃",
+      "民間インフラと居住地にも被害報告",
+      "国際社会は即時停戦と自制を要求"
+    ],
+    bodyMdx: `The New York Timesは、ロシアの攻撃がキーウを含む複数地域で続き、民間人の犠牲とインフラ被害が報告されていると伝えています。状況は流動的で、国際社会の対応が注目されています。`,
+    category: "政治",
+    tags: ["ウクライナ", "ロシア", "欧州", "国際政治"],
+    sources: [
+      {
+        name: "The New York Times",
+        url: "https://www.nytimes.com/2025/09/07/world/europe/russian-strike-kyiv-ukraine.html",
+        date: "2025-09-07"
+      }
+    ],
+    createdAt: "2025-09-07T00:00:00Z",
+    updatedAt: "2025-09-07T00:00:00Z",
+    publishedAt: "2025-09-07T00:00:00Z",
+    status: "PUBLISHED"
   }
 ];

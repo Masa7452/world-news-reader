@@ -40,6 +40,26 @@ body[data-theme="dark"] {
   --shadow: rgba(0, 0, 0, 0.3);
 }
 
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -204,208 +224,208 @@ body[data-theme="dark"] {
 
   /* Pocket/Google-style Colorful Tags */
   .tag-red {
-    background: #FEF2F2;
-    color: #DC2626;
-    border: 1px solid #FECACA;
+    background: #FEF2F2 !important;
+    color: #DC2626 !important;
+    border: 1px solid #FECACA !important;
   }
 
   .tag-orange {
-    background: #FFF7ED;
-    color: #EA580C;
-    border: 1px solid #FED7AA;
+    background: #FFF7ED !important;
+    color: #EA580C !important;
+    border: 1px solid #FED7AA !important;
   }
 
   .tag-amber {
-    background: #FFFBEB;
-    color: #D97706;
-    border: 1px solid #FDE68A;
+    background: #FFFBEB !important;
+    color: #D97706 !important;
+    border: 1px solid #FDE68A !important;
   }
 
   .tag-yellow {
-    background: #FEFCE8;
-    color: #CA8A04;
-    border: 1px solid #FEF08A;
+    background: #FEFCE8 !important;
+    color: #CA8A04 !important;
+    border: 1px solid #FEF08A !important;
   }
 
   .tag-lime {
-    background: #F7FEE7;
-    color: #65A30D;
-    border: 1px solid #D9F99D;
+    background: #F7FEE7 !important;
+    color: #65A30D !important;
+    border: 1px solid #D9F99D !important;
   }
 
   .tag-green {
-    background: #F0FDF4;
-    color: #16A34A;
-    border: 1px solid #BBF7D0;
+    background: #F0FDF4 !important;
+    color: #16A34A !important;
+    border: 1px solid #BBF7D0 !important;
   }
 
   .tag-emerald {
-    background: #ECFDF5;
-    color: #059669;
-    border: 1px solid #A7F3D0;
+    background: #ECFDF5 !important;
+    color: #059669 !important;
+    border: 1px solid #A7F3D0 !important;
   }
 
   .tag-teal {
-    background: #F0FDFA;
-    color: #0D9488;
-    border: 1px solid #99F6E4;
+    background: #F0FDFA !important;
+    color: #0D9488 !important;
+    border: 1px solid #99F6E4 !important;
   }
 
   .tag-cyan {
-    background: #ECFEFF;
-    color: #0891B2;
-    border: 1px solid #A5F3FC;
+    background: #ECFEFF !important;
+    color: #0891B2 !important;
+    border: 1px solid #A5F3FC !important;
   }
 
   .tag-sky {
-    background: #F0F9FF;
-    color: #0284C7;
-    border: 1px solid #BAE6FD;
+    background: #F0F9FF !important;
+    color: #0284C7 !important;
+    border: 1px solid #BAE6FD !important;
   }
 
   .tag-blue {
-    background: #EFF6FF;
-    color: #2563EB;
-    border: 1px solid #BFDBFE;
+    background: #EFF6FF !important;
+    color: #2563EB !important;
+    border: 1px solid #BFDBFE !important;
   }
 
   .tag-indigo {
-    background: #EEF2FF;
-    color: #4F46E5;
-    border: 1px solid #C7D2FE;
+    background: #EEF2FF !important;
+    color: #4F46E5 !important;
+    border: 1px solid #C7D2FE !important;
   }
 
   .tag-violet {
-    background: #F5F3FF;
-    color: #7C3AED;
-    border: 1px solid #DDD6FE;
+    background: #F5F3FF !important;
+    color: #7C3AED !important;
+    border: 1px solid #DDD6FE !important;
   }
 
   .tag-purple {
-    background: #FAF5FF;
-    color: #9333EA;
-    border: 1px solid #E9D5FF;
+    background: #FAF5FF !important;
+    color: #9333EA !important;
+    border: 1px solid #E9D5FF !important;
   }
 
   .tag-fuchsia {
-    background: #FDF4FF;
-    color: #C026D3;
-    border: 1px solid #F5D0FE;
+    background: #FDF4FF !important;
+    color: #C026D3 !important;
+    border: 1px solid #F5D0FE !important;
   }
 
   .tag-pink {
-    background: #FDF2F8;
-    color: #DB2777;
-    border: 1px solid #FBCFE8;
+    background: #FDF2F8 !important;
+    color: #DB2777 !important;
+    border: 1px solid #FBCFE8 !important;
   }
 
   .tag-rose {
-    background: #FFF1F2;
-    color: #E11D48;
-    border: 1px solid #FECDD3;
+    background: #FFF1F2 !important;
+    color: #E11D48 !important;
+    border: 1px solid #FECDD3 !important;
   }
 
   /* Dark theme tag adjustments */
   [data-theme="dark"] .tag-red {
-    background: rgba(220, 38, 38, 0.15);
-    color: #FCA5A5;
-    border-color: rgba(220, 38, 38, 0.3);
+    background: rgba(220, 38, 38, 0.15) !important;
+    color: #FCA5A5 !important;
+    border-color: rgba(220, 38, 38, 0.3) !important;
   }
 
   [data-theme="dark"] .tag-orange {
-    background: rgba(234, 88, 12, 0.15);
-    color: #FDBA74;
-    border-color: rgba(234, 88, 12, 0.3);
+    background: rgba(234, 88, 12, 0.15) !important;
+    color: #FDBA74 !important;
+    border-color: rgba(234, 88, 12, 0.3) !important;
   }
 
   [data-theme="dark"] .tag-amber {
-    background: rgba(217, 119, 6, 0.15);
-    color: #FCD34D;
-    border-color: rgba(217, 119, 6, 0.3);
+    background: rgba(217, 119, 6, 0.15) !important;
+    color: #FCD34D !important;
+    border-color: rgba(217, 119, 6, 0.3) !important;
   }
 
   [data-theme="dark"] .tag-yellow {
-    background: rgba(202, 138, 4, 0.15);
-    color: #FDE047;
-    border-color: rgba(202, 138, 4, 0.3);
+    background: rgba(202, 138, 4, 0.15) !important;
+    color: #FDE047 !important;
+    border-color: rgba(202, 138, 4, 0.3) !important;
   }
 
   [data-theme="dark"] .tag-lime {
-    background: rgba(101, 163, 13, 0.15);
-    color: #BEF264;
-    border-color: rgba(101, 163, 13, 0.3);
+    background: rgba(101, 163, 13, 0.15) !important;
+    color: #BEF264 !important;
+    border-color: rgba(101, 163, 13, 0.3) !important;
   }
 
   [data-theme="dark"] .tag-green {
-    background: rgba(22, 163, 74, 0.15);
-    color: #86EFAC;
-    border-color: rgba(22, 163, 74, 0.3);
+    background: rgba(22, 163, 74, 0.15) !important;
+    color: #86EFAC !important;
+    border-color: rgba(22, 163, 74, 0.3) !important;
   }
 
   [data-theme="dark"] .tag-emerald {
-    background: rgba(5, 150, 105, 0.15);
-    color: #6EE7B7;
-    border-color: rgba(5, 150, 105, 0.3);
+    background: rgba(5, 150, 105, 0.15) !important;
+    color: #6EE7B7 !important;
+    border-color: rgba(5, 150, 105, 0.3) !important;
   }
 
   [data-theme="dark"] .tag-teal {
-    background: rgba(13, 148, 136, 0.15);
-    color: #5EEAD4;
-    border-color: rgba(13, 148, 136, 0.3);
+    background: rgba(13, 148, 136, 0.15) !important;
+    color: #5EEAD4 !important;
+    border-color: rgba(13, 148, 136, 0.3) !important;
   }
 
   [data-theme="dark"] .tag-cyan {
-    background: rgba(8, 145, 178, 0.15);
-    color: #67E8F9;
-    border-color: rgba(8, 145, 178, 0.3);
+    background: rgba(8, 145, 178, 0.15) !important;
+    color: #67E8F9 !important;
+    border-color: rgba(8, 145, 178, 0.3) !important;
   }
 
   [data-theme="dark"] .tag-sky {
-    background: rgba(2, 132, 199, 0.15);
-    color: #7DD3FC;
-    border-color: rgba(2, 132, 199, 0.3);
+    background: rgba(2, 132, 199, 0.15) !important;
+    color: #7DD3FC !important;
+    border-color: rgba(2, 132, 199, 0.3) !important;
   }
 
   [data-theme="dark"] .tag-blue {
-    background: rgba(37, 99, 235, 0.15);
-    color: #93C5FD;
-    border-color: rgba(37, 99, 235, 0.3);
+    background: rgba(37, 99, 235, 0.15) !important;
+    color: #93C5FD !important;
+    border-color: rgba(37, 99, 235, 0.3) !important;
   }
 
   [data-theme="dark"] .tag-indigo {
-    background: rgba(79, 70, 229, 0.15);
-    color: #A5B4FC;
-    border-color: rgba(79, 70, 229, 0.3);
+    background: rgba(79, 70, 229, 0.15) !important;
+    color: #A5B4FC !important;
+    border-color: rgba(79, 70, 229, 0.3) !important;
   }
 
   [data-theme="dark"] .tag-violet {
-    background: rgba(124, 58, 237, 0.15);
-    color: #C4B5FD;
-    border-color: rgba(124, 58, 237, 0.3);
+    background: rgba(124, 58, 237, 0.15) !important;
+    color: #C4B5FD !important;
+    border-color: rgba(124, 58, 237, 0.3) !important;
   }
 
   [data-theme="dark"] .tag-purple {
-    background: rgba(147, 51, 234, 0.15);
-    color: #D8B4FE;
-    border-color: rgba(147, 51, 234, 0.3);
+    background: rgba(147, 51, 234, 0.15) !important;
+    color: #D8B4FE !important;
+    border-color: rgba(147, 51, 234, 0.3) !important;
   }
 
   [data-theme="dark"] .tag-fuchsia {
-    background: rgba(192, 38, 211, 0.15);
-    color: #F0ABFC;
-    border-color: rgba(192, 38, 211, 0.3);
+    background: rgba(192, 38, 211, 0.15) !important;
+    color: #F0ABFC !important;
+    border-color: rgba(192, 38, 211, 0.3) !important;
   }
 
   [data-theme="dark"] .tag-pink {
-    background: rgba(219, 39, 119, 0.15);
-    color: #F9A8D4;
-    border-color: rgba(219, 39, 119, 0.3);
+    background: rgba(219, 39, 119, 0.15) !important;
+    color: #F9A8D4 !important;
+    border-color: rgba(219, 39, 119, 0.3) !important;
   }
 
   [data-theme="dark"] .tag-rose {
-    background: rgba(225, 29, 72, 0.15);
-    color: #FDA4AF;
-    border-color: rgba(225, 29, 72, 0.3);
+    background: rgba(225, 29, 72, 0.15) !important;
+    color: #FDA4AF !important;
+    border-color: rgba(225, 29, 72, 0.3) !important;
   }
 }
 

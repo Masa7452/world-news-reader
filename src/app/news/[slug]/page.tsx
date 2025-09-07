@@ -1,3 +1,6 @@
+"use client";
+
+import { use } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Header } from "@/components/layout/header";
@@ -10,6 +13,7 @@ import { mockArticles } from "@/data/mock/articles";
 import { Calendar, ExternalLink, Home, Clock, Share2, BookOpen, Sparkles } from "lucide-react";
 import { MarkdownContent } from "@/components/markdown-content";
 import { ArticleSourceInfo } from "@/components/article-source-info";
+import { ExternalEmbed } from "@/components/external-embed";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -28,12 +32,12 @@ const formatDate = (dateString: string) => {
   }).format(date);
 };
 
-export default async function ArticlePage({
+export default function ArticlePage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { slug } = await params;
+  const { slug } = use(params);
   const article = mockArticles.find((a) => a.slug === slug);
 
   if (!article) {
@@ -80,10 +84,35 @@ export default async function ArticlePage({
                   <time>{formatDate(article.publishedAt || article.createdAt)}</time>
                 </div>
               </div>
-              <Button variant="outline" size="sm">
-                <Share2 className="h-4 w-4 mr-2" />
+              <button 
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                style={{ 
+                  color: 'var(--text)',
+                  border: '1px solid var(--divider)',
+                  background: 'transparent'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--card-alt)';
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+                onClick={() => {
+                  if (navigator.share) {
+                    navigator.share({
+                      title: article.title,
+                      url: window.location.href
+                    });
+                  } else {
+                    navigator.clipboard.writeText(window.location.href);
+                  }
+                }}
+              >
+                <Share2 className="h-4 w-4" />
                 シェア
-              </Button>
+              </button>
             </div>
             <div className="flex flex-wrap gap-2">
               {article.tags.map((tag) => (
@@ -151,15 +180,39 @@ export default async function ArticlePage({
             </div>
           </div>
 
+          {/* Source Article Preview (Notion-like embed) */}
+          {article.sources && article.sources.length > 0 && (
+            <div className="mb-8">
+              <div className="px-1 py-2">
+                <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                  <ExternalLink className="h-4 w-4" />
+                  参考記事
+                </h3>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                {article.sources.map((source, index) => (
+                  <ExternalEmbed key={index} url={source.url} />
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="mb-8">
             <MarkdownContent content={article.bodyMdx} />
           </div>
 
           <Separator className="mb-8" />
 
-          <div className="mt-12">
-            <h2 className="text-2xl font-semibold mb-6">関連記事</h2>
-            <div className="grid gap-4 md:grid-cols-2">
+          {/* Related Articles Section - Enhanced Design */}
+          <div className="mt-16">
+            <div className="text-center mb-10">
+              <h2 className="text-3xl font-extrabold tracking-tight text-primary mb-3">関連記事</h2>
+              <p className="text-muted max-w-2xl mx-auto">
+                同じタグの記事をもっと読んでみませんか
+              </p>
+            </div>
+            
+            <div className="grid gap-6 md:grid-cols-2">
               {mockArticles
                 .filter(
                   (a) =>
@@ -171,17 +224,41 @@ export default async function ArticlePage({
                   <Link
                     key={relatedArticle.id}
                     href={`/news/${relatedArticle.slug}`}
+                    className="block group"
                   >
-                    <Card className="h-full hover:shadow-md transition-all">
-                      <CardContent className="p-4">
-                        <h3 className="font-semibold mb-2 line-clamp-2">
-                          {relatedArticle.title}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(relatedArticle.publishedAt || relatedArticle.createdAt)}
-                        </p>
-                      </CardContent>
-                    </Card>
+                    <div 
+                      className="h-full p-6 rounded-xl shadow-card hover:shadow-cardHover hover-card transition-all"
+                      style={{ 
+                        background: 'var(--card)',
+                        border: '1px solid var(--divider)'
+                      }}
+                    >
+                      {/* Category Tag */}
+                      <div className="mb-3">
+                        <ArticleTag className="text-xs">{relatedArticle.category}</ArticleTag>
+                      </div>
+                      
+                      {/* Title */}
+                      <h3 className="font-bold text-lg mb-3 line-clamp-2 text-primary group-hover:text-accent1 transition-colors">
+                        {relatedArticle.title}
+                      </h3>
+                      
+                      {/* Summary */}
+                      <p className="text-sm text-muted line-clamp-2 mb-4 leading-relaxed">
+                        {relatedArticle.summary.slice(0, 1).join("")}
+                      </p>
+                      
+                      {/* Footer */}
+                      <div className="flex items-center justify-between pt-3 border-t" style={{ borderColor: 'var(--divider)' }}>
+                        <div className="flex items-center gap-2 text-xs text-muted">
+                          <Calendar className="h-3 w-3" />
+                          <time>{formatDate(relatedArticle.publishedAt || relatedArticle.createdAt)}</time>
+                        </div>
+                        <div className="text-xs text-primary opacity-70 group-hover:opacity-100 transition-opacity">
+                          →
+                        </div>
+                      </div>
+                    </div>
                   </Link>
                 ))}
             </div>
@@ -192,10 +269,4 @@ export default async function ArticlePage({
       <Footer />
     </div>
   );
-}
-
-export async function generateStaticParams() {
-  return mockArticles.map((article) => ({
-    slug: article.slug,
-  }));
 }
