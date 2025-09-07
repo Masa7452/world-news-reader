@@ -207,7 +207,7 @@ export default function Home() {
             
             <p className="text-lg md:text-xl text-muted max-w-2xl leading-relaxed">
               The GuardianやThe New York Timesから厳選された記事を、
-              コーヒーブレイクのひとときにお楽しみください
+              コーヒーブレイクのようなゆったりとした時間に。英語学習にもぴったりです
             </p>
           </div>
         </section>
