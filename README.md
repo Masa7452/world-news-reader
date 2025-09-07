@@ -6,21 +6,7 @@
 
 ## 🌐 Live Demo
 
-<div align="center">
-
-[**🔗 https://world-news-reader-ado6.vercel.app/**](https://world-news-reader-ado6.vercel.app/)
-
-*👆 クリックして実際のサイトをご覧ください*
-
----
-
-### ✨ 主な機能をお試しください
-- 📱 **テーマ切り替え**: 右上のドロップダウンでLight/Sepia/Darkを切り替え
-- 🏷️ **カラフルタグ**: カテゴリー別に色分けされたタグシステム
-- 📰 **記事詳細**: 要点の箇条書き表示と読みやすいレイアウト
-- 🔍 **タグ検索**: 各タグをクリックして関連記事を探索
-
-</div>
+**https://world-news-reader-ado6.vercel.app/**
 
 ## プロジェクト概要
 
