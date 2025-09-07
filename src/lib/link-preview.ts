@@ -44,8 +44,11 @@ export async function parseLinkPreview(url: string, html: string): Promise<LinkP
       if (json && (json["@type"] === "NewsArticle" || json["@type"] === "Article")) {
         if (json.author) {
           authors = Array.isArray(json.author) 
-            ? json.author.map((a: any) => a.name || a)
-            : [json.author.name || json.author];
+            ? json.author.map((a: { name?: string } | string) => 
+                typeof a === 'object' && a !== null ? a.name || String(a) : String(a))
+            : [typeof json.author === 'object' && json.author !== null ? 
+                (json.author as { name?: string }).name || String(json.author) : 
+                String(json.author)];
         }
         break;
       }

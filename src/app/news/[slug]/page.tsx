@@ -6,8 +6,6 @@ import { notFound } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { ArticleTag } from "@/components/ArticleTag";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { mockArticles } from "@/data/mock/articles";
 import { Calendar, ExternalLink, Home, Clock, Share2, BookOpen, Sparkles } from "lucide-react";

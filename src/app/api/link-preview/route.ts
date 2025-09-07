@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { parseLinkPreview } from "@/lib/link-preview";
 
-export const revalidate = 60 * 60; // 1h
+export const revalidate = 3600; // 1 hour
 const FETCH_TIMEOUT = 12_000;
 
 function abortAfter(ms: number) {
@@ -68,8 +68,9 @@ export async function GET(req: Request) {
     const html = await res.text();
     const data = await parseLinkPreview(url, html);
     return NextResponse.json(data, { status: 200 });
-  } catch (e: any) {
-    const message = e?.name === "AbortError" ? "Upstream timeout" : (e?.message || "Unexpected error");
+  } catch (e) {
+    const error = e as Error;
+    const message = error?.name === "AbortError" ? "Upstream timeout" : (error?.message || "Unexpected error");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

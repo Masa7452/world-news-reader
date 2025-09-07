@@ -22,7 +22,6 @@ const formatDate = (dateString: string) => {
 export const ArticleCard = ({ article }: ArticleCardProps) => {
   const [ogImage, setOgImage] = useState<string | null>(null);
   const [imageLoading, setImageLoading] = useState(true);
-  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     // 参考記事のURLからOGP画像を取得
@@ -37,7 +36,6 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
           setImageLoading(false);
         })
         .catch(() => {
-          setImageError(true);
           setImageLoading(false);
         });
     } else {
@@ -60,11 +58,11 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
                 </div>
               </div>
             ) : ogImage ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
               <img 
                 src={ogImage} 
                 alt={article.title}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                onError={() => setImageError(true)}
               />
             ) : null}
             

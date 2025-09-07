@@ -1,7 +1,6 @@
 "use client";
 
 import useSWR from "swr";
-import Image from "next/image";
 import { ExternalLink } from "lucide-react";
 
 type Preview = {
