@@ -1,9 +1,9 @@
 # Phase 5: 自動化と運用
 
-NewsAPI 単独構成で稼働するパイプラインを、GitHub Actions と監視で自動運用する。失敗時に即座に検知し、再実行できる体制を整備する。
+TheNewsAPI 単独構成で稼働するパイプラインを、GitHub Actions と監視で自動運用する。失敗時に即座に検知し、再実行できる体制を整備する。
 
 ## 1. 目的
-- 定期的に NewsAPI から記事を取得し、AI パイプラインを実行。
+- 定期的に TheNewsAPI から記事を取得し、AI パイプラインを実行。
 - 成功 / 失敗を通知し、メトリクスを蓄積。
 - 運用ドキュメントと Runbook を整備。
 
@@ -35,9 +35,9 @@ NewsAPI 単独構成で稼働するパイプラインを、GitHub Actions と監
 - Supabase `sources` / `topics` テーブルに処理フラグ（`processed_at`）を付与し、未処理を可視化。
 
 ## 6. Runbook（障害対応）
-1. 取得失敗（NewsAPI 429）
+1. 取得失敗（TheNewsAPI 429）
    - 原因: レート制限超過
-   - 対処: `NEWS_API_KEY` のプランを確認、取得間隔と `pageSize` を調整
+   - 対処: `NEWS_API_KEY` のプランを確認、取得間隔と `limit` を調整
 2. Supabase 接続失敗
    - 原因: サービスロールキーが無効
    - 対処: 新しいキーを発行しシークレット更新、`pnpm supabase status` で接続確認
@@ -54,6 +54,6 @@ NewsAPI 単独構成で稼働するパイプラインを、GitHub Actions と監
 - エラー発生率（種別別）
 
 ## 8. 継続改善メモ
-- NewsAPI の有料プランに移行した際は、クォータ変更をドキュメント化し、バッチ間隔を最適化。
+- TheNewsAPI の有料プランに移行した際は、クォータ変更をドキュメント化し、バッチ間隔を最適化。
 - Supabase への書き込みがボトルネックになる場合は、バルク挿入やキューイングを検討。
 - GitHub Actions の代わりに自前のスケジューラ（Supabase Functions / Cloud Run）へ移行する場合の比較表を作成。

@@ -66,9 +66,11 @@ export class NewsApiClient {
     pages: number,
     buildParams: (page: number) => URLSearchParams
   ): Promise<readonly SourceItem[]> {
-    const items: SourceItem[] = [];
-
-    for (let page = 1; page <= pages; page++) {
+    const fetchSinglePage = async (page: number): Promise<{
+      items: readonly SourceItem[];
+      totalResults?: number;
+      shouldContinue: boolean;
+    }> => {
       const params = buildParams(page);
       const url = `${this.baseUrl}/${endpoint}?${params.toString()}`;
       const response = await httpClient.fetch<NewsApiResponse>(url, {
@@ -77,23 +79,54 @@ export class NewsApiClient {
         }
       });
 
+      // エラーレスポンスの処理
+      if (response.status === 'error') {
+        throw new Error(`NewsAPI Error [${response.code}]: ${response.message}`);
+      }
+
       const normalized = normalizeNewsApiResponse(response);
-      if (normalized.length === 0) {
+      const shouldContinue = normalized.length === pageSize && normalized.length > 0;
+
+      return {
+        items: normalized,
+        totalResults: response.totalResults,
+        shouldContinue
+      };
+    };
+
+    // 最初のページを取得して総件数を確認
+    const firstPage = await fetchSinglePage(1);
+    
+    // 必要ページ数を計算（無料枠制限: 最大100件）
+    const maxItems = Math.min(firstPage.totalResults ?? 100, 100);
+    const actualPages = Math.min(pages, Math.ceil(maxItems / pageSize));
+    
+    if (actualPages === 1 || !firstPage.shouldContinue) {
+      return firstPage.items;
+    }
+
+    // 残りのページを順次取得（早期終了制御のためfor文を使用）
+    const allItems: SourceItem[] = [...firstPage.items];
+    
+    for (let page = 2; page <= actualPages; page++) {
+      // 無料枠制限チェック
+      if (allItems.length >= 100) {
         break;
       }
-
-      items.push(...normalized);
-
-      if (normalized.length < pageSize) {
+      
+      await this.sleep(this.defaultDelay);
+      const pageResult = await fetchSinglePage(page);
+      
+      allItems.push(...pageResult.items);
+      
+      // データが終了した場合は早期終了
+      if (!pageResult.shouldContinue) {
         break;
-      }
-
-      if (page < pages) {
-        await this.sleep(this.defaultDelay);
       }
     }
 
-    return items;
+    // 無料枠制限: 最大100件まで
+    return allItems.slice(0, 100);
   }
 
   private applyCommonHeadlineParams(params: URLSearchParams, options: TopHeadlinesOptions): void {

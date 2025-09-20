@@ -1,6 +1,6 @@
 /**
  * データベース操作のユーティリティ関数
- * バッチ処理とエラーハンドリングを提供
+ * NewsAPI用のバッチ処理とエラーハンドリングを提供
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -60,25 +60,22 @@ export const saveSourceItems = async (
           return;
         }
         
-        // 新規レコードを挿入
+        // 新規レコードを挿入（NewsAPI専用）
         const sourceData = {
-          provider: item.provider,
-          provider_id: item.providerId,
+          provider: item.provider, // 'newsapi'固定
+          provider_id: item.providerId, // URL使用
           url: item.url,
           title: item.title,
           abstract: item.abstract,
           published_at: item.publishedAt,
           raw_data: {
-            section: item.section,
-            subsection: item.subsection,
-            byline: item.byline,
-            tags: item.tags,
-            type: item.type,
-            wordCount: item.wordCount,
-            image: item.image,
-            body: item.body,
-            bodyText: item.bodyText,
-            sourceName: item.sourceName
+            // NewsAPI固有フィールド
+            section: item.section, // source.name
+            byline: item.byline, // author
+            tags: item.tags, // source情報から生成
+            image: item.image, // urlToImage
+            bodyText: item.bodyText, // content（切り詰め済み）
+            sourceName: item.sourceName // 'NewsAPI'固定
           }
         };
         

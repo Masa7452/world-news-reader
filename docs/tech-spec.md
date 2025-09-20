@@ -1,7 +1,7 @@
 # docs/tech-spec.md
 ## 開発者向け詳細仕様書（MVP/自動運用）
 
-この文書は運用の中心となる技術的な合意事項を定義します。NewsAPI.org の詳細仕様は [docs/api-newsapi.md](./api-newsapi.md) を参照してください。
+この文書は運用の中心となる技術的な合意事項を定義します。TheNewsAPI の詳細仕様は [docs/api-newsapi.md](./api-newsapi.md) を参照してください。
 
 ### 0. 重要方針（ドメイン集約）
 - API 固有ロジック（フィールド差異の吸収・マッピング・前処理）は domain 層に集約し、他レイヤー（選定 / 構成 / 執筆 / 校正 / 公開）は正規化済み型のみを扱う。
@@ -9,7 +9,7 @@
 - 将来別ソースを追加する場合も domain にアダプタを追加することで拡張可能な構造を維持する。
 
 ### 1. 範囲と前提
-- ニュースデータは NewsAPI.org の Top Headlines / Everything エンドポイントから取得する。
+- ニュースデータは TheNewsAPI の `/news/top` / `/news/latest` / `/news/all` エンドポイントから取得する。
 - 取得対象は記事メタデータ（タイトル / URL / 公開日 / 要約 / 画像URL / 提供元など）。本文の保存・再配布は行わない。
 - AI 処理は多段エージェント構成：Selector → Outliner → Writer → Polisher → Verifier → Publisher。
 - データベースは Supabase（PostgreSQL）を利用し、取得済みソース・生成トピック・下書き記事を永続化する。
@@ -31,10 +31,10 @@ world-news-reader/
 │   └── published/
 ├── docs/
 ├── domain/
-│   ├── newsapi.ts               # NewsAPI アダプタと型
+│   ├── newsapi.ts               # TheNewsAPI アダプタと型（名称は互換のため維持）
 │   └── types.ts                 # 正規化型（SourceItem / Topic / Article 等）
 ├── lib/
-│   ├── api/newsapi-client.ts    # NewsAPI HTTP クライアント
+│   ├── api/newsapi-client.ts    # TheNewsAPI HTTP クライアント（名称は互換のため維持）
 │   ├── database-utils.ts
 │   ├── http-client.ts
 │   └── ...
@@ -57,28 +57,28 @@ world-news-reader/
 ```
 
 ### 4. データモデル（ドメイン契約）
-NewsAPI のレスポンスを正規化したドメイン契約。provider 差異は domain 層で吸収する。
+TheNewsAPI のレスポンスを正規化したドメイン契約。provider 差異は domain 層で吸収する。
 
 ```
 type Provider = 'newsapi';
 
 type SourceItem = {
   provider: Provider;            // 供給元（固定値: newsapi）
-  providerId: string;            // 安定識別子（URL を利用）
+  providerId: string;            // 安定識別子（URL もしくは uuid）
   url: string;                   // 記事 URL
   title: string;                 // 見出し
   abstract?: string;             // 要約（description または content）
   publishedAt: string;           // ISO8601
   section?: string;              // source.name など
-  subsection?: string;           // 将来の拡張用（NewsAPI では未使用）
+  subsection?: string;           // 将来の拡張用（現状は未使用）
   byline?: string;               // 著者名
   tags?: string[];               // ソース名や著者名などから推定
   type?: string;                 // 取得元の分類（未使用）
-  wordCount?: number;            // NewsAPI では提供されない（未使用）
+  wordCount?: number;            // TheNewsAPI では提供されない（未使用）
   image?: { url: string; caption?: string; credit?: string };
   body?: string;                 // HTML 本文（未使用）
   bodyText?: string;             // 要約テキスト
-  sourceName: 'NewsAPI';         // 表示用媒体名
+  sourceName: 'NewsAPI';         // 表示用媒体名（互換目的で名称を維持）
 }
 
 type Topic = {
@@ -119,7 +119,7 @@ type Article = {
 - 画像の利用条件・著作権に注意。`urlToImage` が空の場合は画像なしとして扱う。
 
 ### 5. パイプライン（MVP）
-1. `fetch-newsapi.ts`: NewsAPI → 正規化 `SourceItem` → Supabase `sources` テーブルへ upsert / 開発時は JSON 保存  
+1. `fetch-newsapi.ts`: TheNewsAPI → 正規化 `SourceItem` → Supabase `sources` テーブルへ upsert / 開発時は JSON 保存  
 2. `rank_topics.ts`: 重複除去（canonicalKey / URL）＋スコアリング → `topics` テーブル / `data/queue.csv`  
 3. `build_outline.ts`: ジャンルごとにテンプレ選択 → アウトライン JSON 生成  
 4. `write_post.ts`: MDX ドラフト生成 → `/content/drafts`  
@@ -128,8 +128,8 @@ type Article = {
 7. `publish_local.ts`: 承認済み記事を `/content/published` へ移動し ISR を再生成
 
 レート / 再試行:
-- NewsAPI の無料枠基準: 1 req/sec、100 req/day。429/5xx は指数バックオフ＋最大リトライ 3 回。
-- 多量取得時は `everything` エンドポイントで日付を分割し、クォータを超えないよう調整する。
+- TheNewsAPI の無料枠基準: 100 req/day（limit=3）。429/5xx は指数バックオフ＋最大リトライ 3 回。
+- 多量取得時は `/news/all` などのエンドポイントで `published_after` を分割し、クォータを超えないよう調整する。
 
 ### 6. AI エージェント
 - Selector: `sources` から topics 候補を選定しジャンル付与  
@@ -169,9 +169,9 @@ jobs:
 ### 8. 品質ゲート
 - `pnpm lint` と `pnpm typecheck` を CI に組み込み、main へのマージ時に破綻がないことを保証。
 - ドラフト生成後は `verify_post.ts` の結果をもとに手動レビューを実施。
-- 生成記事には出典セクションを必須表示し、NewsAPI 経由の元記事 URL を利用者に示す。
+- 生成記事には出典セクションを必須表示し、TheNewsAPI 経由の元記事 URL を利用者に示す。
 
 ### 9. 今後の拡張メモ
-- 有料プランの Content API を導入する場合は `domain/newsapi.ts` に全文フィールドを追加し、AI の入力長を最適化。
+- TheNewsAPI の有料プランで提供される追加フィールドを導入する場合は `domain/newsapi.ts` に全文フィールドを追加し、AI の入力長を最適化。
 - 他ニュースプロバイダを追加する際は、`Provider` のユニオン型と domain アダプタを拡張し、Supabase 側の CHECK 制約を更新。
 - 取得頻度を上げる場合はレート制限とクォータを踏まえ、必要に応じてバッチを時間分散する。

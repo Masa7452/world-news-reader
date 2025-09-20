@@ -1,48 +1,57 @@
-# Phase 2: データ収集パイプライン（NewsAPI）
+# Phase 2: データ収集パイプライン（TheNewsAPI）
 
-NewsAPI から記事を取得し、Supabase `sources` テーブルへ保存するバッチ処理を実装する。レート制限を尊重しつつ、再試行・ログ出力・JSON サンプル生成を整える。
+TheNewsAPI から記事を取得し、Supabase `sources` テーブルへ保存するバッチ処理を実装する。レート制限（無料プラン: 100 req/day・limit=3）を尊重しつつ、再試行・ログ出力・JSON サンプル生成を整える。
 
 ## 1. 成果物サマリ
 - `src/lib/api/newsapi-client.ts` に実 API 呼び出し・ページング処理・エラーハンドリングを実装。
-- `scripts/fetch-newsapi.ts` を追加し、環境変数を読み込んで NewsAPI → Supabase の保存フローを構築。
-- `src/lib/database-utils.ts` を NewsAPI データに最適化し、重複チェック / バッチ保存 / レート制限待機を調整。
-- 開発用に `data/samples/newsapi-*.json` を出力するオプションを用意。
+- `scripts/fetch-newsapi.ts` を追加し、環境変数を読み込んで TheNewsAPI → Supabase の保存フローを構築。
+- `src/lib/database-utils.ts` を TheNewsAPI データに最適化し、重複チェック / バッチ保存 / レート制限待機を調整。
+- 開発用に `data/samples/newsapi-*.json`（名称は互換のため維持）を出力するオプションを用意。
 
 ## 2. 前提
-- Phase 1 で NewsAPI アダプタ / クライアント / Supabase スキーマが整備済みであること。
+- Phase 1 で TheNewsAPI アダプタ / クライアント / Supabase スキーマが整備済みであること。
 - `.env.local` に以下が設定されていること:
-  - `NEWS_API_KEY`
+  - `NEWS_API_KEY`（TheNewsAPI の API トークン）
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `SUPABASE_SERVICE_ROLE_KEY`
 - Supabase CLI が利用可能で、`sources` テーブルが存在する。
 
 ## 3. 実装手順
 
-### 3.1 NewsAPI クライアント強化
-1. `fetchPagedArticles` 内で `totalResults` を参照し、必要ページ数を判定。
-2. `pages` 引数で最大取得ページ数を制御。無料枠は 100 記事までのため、既定はページサイズ 50 × ページ数 2 程度とする。
-3. レスポンス status が `error` の場合はコードとメッセージを投げる。
-4. `fetchEverything` では `from` / `to` を ISO8601 形式で受け取れるよう調整。
+### 3.1 TheNewsAPI クライアント強化
+1. `fetchPagedArticles`
+   - レスポンスの `meta` から `found`（総件数）、`returned`、`limit` を読み取り、取得可能ページ数を計算。
+   - 無料プランでは `limit` が最大 3 のため、既定値は `limit=3`, `pages=1`。Basic 以上は `limit` 25/50 に拡張可能。
+   - 各ページ取得後に `shouldContinue`（返却件数が `limit` に満たない場合は false）を判定し、早期終了できるようにする。
+   - エラーレスポンスは `response.status` が無いため HTTP ステータスで判断し、`message` フィールドがあればログに含める。
+
+2. `fetchEverything`（TheNewsAPI の `/news/all` 相当）
+   - `published_after` / `published_before` を ISO8601 文字列で受け取れるようにする。
+   - 追加オプション: `search`, `search_fields`, `locale`, `language`, `categories`, `sources`, `not_sources` などをサポート。
 
 ### 3.2 取得スクリプト
 1. `scripts/fetch-newsapi.ts`
    - `dotenv/config` で `.env.local` を読み込み。
-   - オプション: `USE_SUPABASE=false` で DB 書き込みをスキップし、JSON 出力のみ実施。
-   - 期間指定: 直近 24 時間を既定とし、CLI オプション（`--days`, `--query`, `--sources` 等）でカスタマイズ可能にすると運用が楽。
-   - `NewsApiClient.fetchEverything` を呼び出し、正規化結果を `saveSourceItems` に渡す。
-   - 開発モード（`NODE_ENV=development`）では `data/samples/newsapi-{timestamp}.json` に先頭 10 件を保存。
+   - CLI オプション: `--days`（既定1日）、`--query`（search）、`--sources`、`--locale`、`--language`、`--dry-run`。
+   - `createDateRange` で現在時刻から `days` 日前を算出し、`published_after` / `published_before` として利用。
+   - 無料プランでは 1 リクエストにつき 3 件となるため、必要件数が多い場合は `pages` を増やして複数回呼び出し。
+   - `USE_SUPABASE=false` または `--dry-run` の際は Supabase 保存をスキップし、`data/samples/newsapi-{timestamp}.json` に先頭10件を保存。
+
+2. ログ出力
+   - 取得期間、クエリ、ソース指定をログに表示。
+   - 取得件数、保存件数、スキップ件数、エラー件数を整形して出力。
 
 ### 3.3 Supabase 保存ユーティリティ
 1. `saveSourceItems`
    - 1 バッチ 10 件程度で upsert。
-   - `provider` / `provider_id` の複合一意制約で重複チェック。
-   - `raw_data` に NewsAPI レスポンスを格納（必要最小限のフィールドを選択）。
+   - `provider='newsapi'`（TheNewsAPI）と `provider_id`（URL もしくは uuid）の複合一意キーで重複を防止。
+   - `raw_data` には TheNewsAPI 固有のフィールド（`snippet`, `categories`, `locale` など）を格納。
 2. `getExistingSourceCount`
-   - `provider='newsapi'` で期間内件数を取得し、バッチ前にログ表示。
+   - 取得期間に基づき `provider='newsapi'` の件数を参照し、再取得の有無を判断。
 
 ### 3.4 ロギングとエラー処理
 - 成功時: 取得件数・保存件数・スキップ件数を `console.log`。
-- 429 / ネットワークエラー時: HTTP クライアント側の指数バックオフに任せつつ、最後のエラー内容を標準エラーへ出力。
+- 429 / 5xx / ネットワークエラー時: HTTP クライアント側の指数バックオフ（1,2,4秒）を利用し、最大3回リトライ。
 - 致命的エラー時は `process.exit(1)` で終了。CI で検知できるようにする。
 
 ## 4. テスト / 検証
@@ -52,6 +61,6 @@ NewsAPI から記事を取得し、Supabase `sources` テーブルへ保存す�
 - [ ] レート制限超過を模したテスト（429 強制）で指数バックオフが機能する。
 
 ## 5. 補足
-- 有料プランでクォータが拡大した場合は `pages` / `pageSize` を調整。
-- 国別・カテゴリ別の Top Headlines を併用する場合、`fetchTopHeadlines` を追加で呼び出し、`providerId` に `url + '#top'` などを付与して重複を避ける。
-- NewsAPI は記事公開から 30 日以内が対象。長期保管は Supabase / 自前ストレージで行う。
+- 無料プランの上限（100 req/day, limit=3）を超える場合は Basic プラン（limit=25）への移行を検討。
+- `locale` / `language` / `categories` を指定すると、対象地域・ジャンルを絞ってノイズを減らせる。
+- TheNewsAPI は記事公開から約30日間が検索対象。長期保管は Supabase / 自前ストレージで行う。

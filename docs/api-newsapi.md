@@ -1,201 +1,195 @@
-# NewsAPI.org API 設計書
+# TheNewsAPI 設計書
 
-本書は NewsAPI.org が提供する REST API（Top Headlines / Everything / Sources および商用契約向け Content API）のインターフェイス仕様（エンドポイント、認証方式、主要クエリパラメータ、レスポンス構造、ページネーション、レート制限、エラーレスポンス）を整理したものです。実装手順は含みません。
+本書は TheNewsAPI (https://www.thenewsapi.com/) が提供する REST API の仕様を整理したものです。Top / Latest / All ニュース取得とソース情報参照を対象に、エンドポイント、認証方式、主要クエリパラメータ、レスポンス構造、レート制限、エラーレスポンスをまとめます。実装コードは別資料を参照してください。
 
 ## 概要
-- 基底URL: `https://newsapi.org/v2`
+- 基底URL: `https://api.thenewsapi.com/v1`
 - 形式: REST + JSON
-- 認証: HTTPヘッダ `X-Api-Key: YOUR_KEY`（またはクエリ `apiKey`）
-- 取得内容: 多数のパブリックニュースソースから集約された記事メタデータ
-- 期間: `everything` は過去30日以内（無料/スタンダード）、Top Headlines は直近速報
+- 認証: クエリ `api_token=YOUR_TOKEN` または `Authorization: Bearer YOUR_TOKEN`
+- 取得内容: 国内外の主要メディアから収集された記事メタデータ（本文スニペット含む）
+- 対象期間: `/news/latest` は直近、`/news/top` は編集部選定、`/news/all` は過去30日程度の全文検索
 - 文字コード: UTF-8
 
 ## 認証と共通仕様
-- すべてのリクエストに APIキーが必須。推奨はヘッダ `X-Api-Key`、代替手段として `?apiKey=` クエリをサポート。
-- レスポンスの基本構造は `{ "status": "ok" | "error", ... }`。
-- 日付は ISO 8601 (`YYYY-MM-DDTHH:mm:ssZ`) 形式。
-- `everything` と `top-headlines` は `page` + `pageSize`（最大100）でページング。`page` は 1 起点、1〜100 の範囲で指定可能。総件数は `totalResults`。
-- 1リクエストあたりの記事数は `pageSize` に依存（既定20、最大100）。無料/スタンダードではページ総数に関係なく最初の100件までしか取得できません。
-- 利用規約で記事本文の保管・再配布は制限されます。レスポンスの `content` フィールドは約200〜260文字で切り詰められた要約テキスト（無料/スタンダード）。全文は有償 Content API でのみ提供。
+- すべてのエンドポイントで API トークンが必須。推奨はクエリ `api_token`。
+- レスポンスのトップレベルは `{ "data": [...], "meta": {...} }`。`data` が記事配列、`meta` がページ情報。
+- 日付は ISO8601 (`YYYY-MM-DDTHH:mm:ssZ`) 形式で返却・指定。
+- ページングは `page` (1 起点) と `limit` (無料: 最大3、Basic: 最大25 などプランに依存)。
+- 言語・地域は `language` / `locale` で指定。無指定時は英語圏（`en`）中心。
 
-## レート制限とプラン
-- Developer（無料）: 100リクエスト/日、1リクエスト/秒（Burst）。非商用のみ。
-- Starter / Pro: 1,000〜10,000+ リクエスト/日（プランにより差異）。商用利用・再配信可。`everything` の履歴範囲が最大2年間に拡張、Webhook配信や追加メタデータも利用可能。
-- Enterprise: 契約内容に応じてレート・ソース配信がカスタマイズされ、全文配送（Content API）や広範なバックフィルが提供されます。
-- 429 (Too Many Requests) 時は `X-RateLimit-Remaining`, `X-RateLimit-Reset` ヘッダを参照し、指数バックオフで再試行すること。
+## レート制限とプラン（2025年02月時点）
+| プラン | 月額 | リクエスト/日 | 1リクエストあたり上限 (`limit`) | 商用利用 |
+| --- | --- | --- | --- | --- |
+| Free | 無料 | 100 | 3 | 小規模用途は可（配信先でのクレジット表記必須） |
+| Basic | $16 | 2,500 | 25 | 商用可 |
+| Pro | $64 | 10,000 | 50 | 商用可 |
+| Business | 個別見積もり | カスタム | カスタム | 商用可 |
 
----
-
-## GET /top-headlines
-主要ソースの最新ヘッドラインを取得。速報用途に適しています。
-
-例:
-```
-GET https://newsapi.org/v2/top-headlines
-  ?country=us
-  &category=technology
-  &pageSize=50
-  &page=1
-Header: X-Api-Key: YOUR_KEY
-```
-
-### クエリパラメータ
-- `country` (ISO 3166-1 alpha-2, 任意): 国コード。`us`, `gb`, `au`, `jp` など。`sources` と同時指定不可。
-- `category` (enum, 任意): `business`, `entertainment`, `general`, `health`, `science`, `sports`, `technology`。国指定がない場合は一部地域のみ対応。
-- `sources` (string, 任意): ソースIDをカンマ区切りで指定（例: `bbc-news,techcrunch`）。`country`/`category` と同時指定不可。
-- `q` (string, 任意): キーワード検索。空白はURLエンコード。
-- `pageSize` (1–100, 任意): 1ページの件数（既定20）。
-- `page` (1–100, 任意): ページ番号。
-- `language` (ISO 639-1, 任意): 言語フィルタ（例: `en`, `fr`, `de`）。`country` と併用不可。
-
-### レスポンス（抜粋）
-```
-200 OK
-{
-  "status": "ok",
-  "totalResults": 120,
-  "articles": [
-    {
-      "source": { "id": "bbc-news", "name": "BBC News" },
-      "author": "BBC News",
-      "title": "Example headline",
-      "description": "Short summary ...",
-      "url": "https://www.bbc.com/news/example",
-      "urlToImage": "https://ichef.bbci.co.uk/news/1024/example.jpg",
-      "publishedAt": "2025-02-03T12:45:00Z",
-      "content": "Partial content up to ~200 chars … [ +123 chars ]"
-    }
-  ]
-}
-```
-
-### 注意事項
-- `totalResults` は推計値。無料プランでは 100 件までしか取得できないため、ページ >= 2 で空配列になる場合があります。
-- `source.id` が `null` の記事は提携先の個別IDが未付与。
+- 1 秒あたり 1 リクエスト程度が目安。超過すると HTTP 429 を返す。
+- 日次クォータは UTC 00:00 にリセット。
 
 ---
 
-## GET /everything
-キーワードやドメインで過去記事を検索するエンドポイント。集約対象は主要メディア数千件。
+## GET /news/top
+トップニュース（編集部選定の注目記事）を取得します。
 
 例:
 ```
-GET https://newsapi.org/v2/everything
-  ?q=artificial+intelligence
-  &from=2025-01-01
-  &to=2025-02-03
+GET https://api.thenewsapi.com/v1/news/top
+  ?api_token=YOUR_TOKEN
+  &locale=us
   &language=en
-  &sortBy=publishedAt
-  &pageSize=100
-  &page=1
-Header: X-Api-Key: YOUR_KEY
+  &limit=3
 ```
 
 ### クエリパラメータ
-- `q` (string, 任意): フリーテキスト検索。複数語は `AND`。引用符でフレーズ検索、`NOT`/`OR`/括弧による論理検索が可能。
-- `qInTitle` (string, 任意): タイトルのみを対象に検索。
-- `sources` (string, 任意): ソースIDのカンマ区切り。`domains` と併用可だが `country`/`category` は指定不可。
-- `domains` / `excludeDomains` (string, 任意): ドメイン（ホスト名）で絞り込み。
-- `from` / `to` (ISO 8601, 任意): 期間指定。タイムゾーンを含む。無料/スタンダードでは過去30日までが対象。
-- `language` (ISO 639-1, 任意): 言語（例: `en`, `ja`, `fr`）。
-- `sortBy` (enum, 任意): `relevancy`（関連度）, `popularity`（ソースの人気度）, `publishedAt`（最新順）。
-- `searchIn` (enum list, 任意): `title`, `description`, `content` のいずれかをカンマ区切りで指定（2024年追加）。
-- `pageSize` / `page`: ページング制御（前述の共通仕様参照）。
+- `locale` (string, 任意): ニュース地域。例: `us`, `gb`, `ca`, `au`, `in`, `jp` など。
+- `language` (string, 任意): ISO639-1 コード。例: `en`, `es`, `fr`, `de`, `pt`。
+- `categories` (string, 任意): カンマ区切りのカテゴリ。例: `business,technology`。
+- `limit` (number, 任意): 返却件数。無料は 1–3、Basic 以上は最大25/50。
+- `page` (number, 任意): 1 起点のページ番号。
+- `not_sources` / `sources` (string, 任意): 除外・包含するソース名をカンマ区切りで指定。
 
 ### レスポンス（抜粋）
 ```
 200 OK
 {
-  "status": "ok",
-  "totalResults": 3462,
-  "articles": [
+  "data": [
     {
-      "source": { "id": "the-verge", "name": "The Verge" },
-      "author": "Jane Doe",
-      "title": "AI startup launches new model",
-      "description": "A quick summary ...",
-      "url": "https://www.theverge.com/2025/02/03/ai-startup-model",
-      "urlToImage": "https://cdn.vox-cdn.com/thumbor/.../image.jpg",
-      "publishedAt": "2025-02-03T09:12:34Z",
-      "content": "Partial content up to ~200 chars …"
+      "uuid": "706fd910-d49f-45db-9ed0-1b6c6a6ff4e1",
+      "title": "Example headline",
+      "description": "Short standfirst ...",
+      "snippet": "Expanded summary text ...",
+      "url": "https://www.cnn.com/example",
+      "image_url": "https://cdn.cnn.com/example.jpg",
+      "language": "en",
+      "published_at": "2025-02-03T12:30:00Z",
+      "source": "CNN",
+      "categories": ["business"],
+      "locale": "us"
     }
-  ]
+  ],
+  "meta": {
+    "found": 12345,
+    "returned": 3,
+    "limit": 3,
+    "page": 1
+  }
 }
 ```
 
-### 注意事項
-- `totalResults` が 0 でも HTTP 200 が返る（`articles` は空配列）。
-- `sortBy=popularity` は主要英語ソース中心、`language` 指定がなければ英語優先でヒット。
-- 高頻度キーワードで 100 件を超える場合、取得は最新順に限定されるため、日ごとに `from`/`to` を分割するなど再取得戦略が必要です。
-
 ---
 
-## GET /sources
-利用可能なニュースソースのメタデータ一覧を取得。
+## GET /news/latest
+時系列順の最新記事を取得します。
 
 例:
 ```
-GET https://newsapi.org/v2/sources
-  ?language=en
-  &country=us
-Header: X-Api-Key: YOUR_KEY
+GET https://api.thenewsapi.com/v1/news/latest
+  ?api_token=YOUR_TOKEN
+  &countries=us,gb
+  &language=en
+  &limit=3
 ```
 
-### クエリパラメータ
-- `category` (enum, 任意): `business`, `entertainment`, `general`, `health`, `science`, `sports`, `technology`。
-- `language` (ISO 639-1, 任意)
-- `country` (ISO 3166-1 alpha-2, 任意)
+### 主なパラメータ
+- `countries` (string, 任意): カンマ区切りの国コード。例: `us,gb,ca`。
+- `language`: Top と同様。
+- `published_after` / `published_before` (ISO8601, 任意): 公開日時で範囲指定。
+- `search` (string, 任意): 単純キーワード検索（AND 検索）。
+- その他 `sources`, `not_sources`, `categories`, `limit`, `page` は `/news/top` と同様。
 
-### レスポンス（抜粋）
-```
-200 OK
-{
-  "status": "ok",
-  "sources": [
-    {
-      "id": "bbc-news",
-      "name": "BBC News",
-      "description": "Use BBC News for up-to-the-minute news...",
-      "url": "http://www.bbc.co.uk/news",
-      "category": "general",
-      "language": "en",
-      "country": "gb"
-    }
-  ]
-}
-```
+### 用途
+- 定期バッチで最新記事を拾う用途に適し、`published_after` を直近24時間に設定すると日次クローリングを実装しやすい。
 
 ---
 
-## Content API（有償オプション）
-- プロ/エンタープライズ契約で提供される全文配信API。専用エンドポイント（例: `https://newsapi.org/v2/content`）と追加フィールド（全文HTML、著作権情報、トピック分類、画像メタデータ等）が利用可能。
-- REST構造は `everything` に類似しつつ、`articles[]` に `fullContent`, `topics`, `entities`, `sentiment` などが付加される。
-- エンドポイント/スキーマは契約プランごとに異なるため、導入時は NewsAPI サポートから提供される最新仕様書を参照すること。
+## GET /news/all
+全文検索。過去30日分が対象です。
+
+```
+GET https://api.thenewsapi.com/v1/news/all
+  ?api_token=YOUR_TOKEN
+  &search=artificial%20intelligence
+  &language=en
+  &sort=published_desc
+  &limit=25
+```
+
+### 主なパラメータ
+- `search` (string): フリーテキスト検索。スペースは AND。引用符でフレーズ検索。
+- `search_fields` (string, 任意): `title,description,snippet` のいずれかをカンマ区切りで指定。
+- `sort` (enum, 任意): `published_desc`（既定）, `published_asc`, `relevance`。
+- `published_after` / `published_before`: ISO8601。最大 30 日の範囲。
+- `locale`, `language`, `categories`, `sources`, `not_sources`, `limit`, `page`。
+
+### レスポンス注意点
+- `meta.found` にヒット総数。`meta.returned` は実際に返した件数。
+- 追加フィールド `relevance_score` が付く場合がある（検索適合度 0-1）。
+
+---
+
+## GET /news/sources
+利用可能なニュースソースのリストを取得します。
+
+```
+GET https://api.thenewsapi.com/v1/news/sources
+  ?api_token=YOUR_TOKEN
+  &language=en
+```
+
+### 主なパラメータ
+- `language` (string, 任意)
+- `locale` (string, 任意)
+- `categories` (string, 任意)
+
+### レスポンス例
+```
+{
+  "data": [
+    {
+      "id": "cnn",
+      "name": "CNN",
+      "url": "https://www.cnn.com",
+      "categories": ["general"],
+      "language": "en",
+      "locale": "us"
+    }
+  ],
+  "meta": {
+    "returned": 1
+  }
+}
+```
 
 ---
 
 ## エラーハンドリング
-- 認証失敗: `401` / `status: "error"`, `code: "apiKeyInvalid"`, `message` に詳細。
-- リクエスト制限: `429` / `code: "rateLimited"`。
-- パラメータエラー: `400` / `code: "parameterInvalid"`。
-- サーバエラー: `500` / `code: "unexpectedError"`。
+- 認証失敗: `401 Unauthorized` / `"message": "Invalid authentication credentials"`
+- レート超過: `429 Too Many Requests`
+- パラメータ不備: `400 Bad Request`
+- サーバエラー: `500 Internal Server Error`
 
-例:
+レスポンス例:
 ```
-401 Unauthorized
+400 Bad Request
 {
-  "status": "error",
-  "code": "apiKeyInvalid",
-  "message": "Your API key is invalid or incorrect."
+  "message": "Invalid locale parameter provided"
 }
 ```
 
-- エラー時は HTTP ステータスを優先し、`status === "error"` の場合は `code` と `message` をログした上で再試行/フォールバックを実装すること。
+実装時は HTTP ステータスを優先し、`429` の場合は指数バックオフを行うこと。
 
 ## 実装時のベストプラクティス
-- APIキーはサーバー側で安全に管理し、クライアントアプリに埋め込まない。
-- 短時間に連続リクエストする場合は 1req/sec を超えないようスロットリングを実装。
-- `everything` の長期巡回では期間ごと（日次など）に区切り、`from`/`to` をスライドさせながら取得する。
-- ソース名とIDは定期的に `/sources` で同期し、無効なIDをリクエストしない。
-- レスポンスの `content` はトリミング済みであるため、本文が必須な場合は NewsAPI Content API へのアップグレードまたは別の提供元を利用する。
+- API キーはサーバー側で安全に管理（env ファイルやシークレット管理を使用）。
+- バッチ処理では `published_after` を前回取得時刻に更新し、重複取得やクォータ消費を抑える。
+- `limit` はプランごとの上限以内に収める。無料プランでは 3 を固定値として扱う。
+- レスポンスは記事本文全文を返さないため、全文が必要であれば元記事 URL を辿るか、上位プランを検討する。
+- `source`（媒体名）や `categories` は標準化されていないため、内部でマッピングテーブルを用意すると分類が安定する。
 
+---
+
+## 参考リンク
+- 公式ドキュメント: https://www.thenewsapi.com/documentation
+- FAQ / 利用規約: https://www.thenewsapi.com/faq
+- プラン比較: https://www.thenewsapi.com/pricing
