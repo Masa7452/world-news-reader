@@ -2,11 +2,12 @@
 
 /**
  * アウトライン生成スクリプト
- * 選定されたトピックからジャンル別テンプレートでアウトラインを生成
+ * 選定されたトピックからGemini APIでアウトラインを生成
  */
 
 import { createClient } from '@supabase/supabase-js';
 import type { Genre, TopicOutline } from '../src/domain/types';
+import { generateOutline } from '../lib/gemini-client';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
@@ -114,36 +115,73 @@ const getOutlineTemplate = (genre: Genre): string => {
   return templates[genre] || templates.news;
 };
 
-// アウトライン生成（モック実装）
-const generateOutline = async (topic: any): Promise<TopicOutline> => {
+// Gemini APIでアウトライン生成
+const generateOutlineForTopic = async (topic: any): Promise<TopicOutline> => {
   const template = getOutlineTemplate(topic.genre);
   
-  // TODO: 実際のAI API呼び出しを実装
-  // 現在はモックデータを返す
-  const mockOutline: TopicOutline = {
-    id: `outline-${topic.id}`,
-    topicId: topic.id,
-    title: `【${topic.genre}】${topic.title}`,
-    summary: [
-      '記事の要点1',
-      '記事の要点2',
-      '記事の要点3'
-    ],
-    sections: [
-      {
-        heading: 'セクション1',
-        points: ['ポイント1-1', 'ポイント1-2']
-      },
-      {
-        heading: 'セクション2', 
-        points: ['ポイント2-1', 'ポイント2-2']
-      }
-    ],
-    tags: [topic.genre, topic.section || 'news'],
-    createdAt: new Date().toISOString()
-  };
-
-  return mockOutline;
+  try {
+    console.log(`  📝 ${topic.title} のアウトライン生成中...`);
+    
+    // Gemini APIでアウトライン生成
+    const outlineJson = await generateOutline(
+      topic.title,
+      topic.abstract || '',
+      topic.genre,
+      template
+    );
+    
+    // JSONをパース
+    const outlineData = JSON.parse(outlineJson);
+    const sections = Array.isArray(outlineData.sections) ? outlineData.sections : [];
+    
+    // TopicOutline型に変換
+    const outline: TopicOutline = {
+      id: `outline-${topic.id}`,
+      topicId: topic.id,
+      title: topic.title,
+      summary: sections.slice(0, 3).map((s: any) => (s.points?.[0] as string | undefined) || ''),
+      sections: sections.map((section: any) => ({
+        heading: section.title,
+        points: Array.isArray(section.points) ? section.points : []
+      })),
+      tags: [topic.genre, topic.section || 'news'],
+      createdAt: new Date().toISOString()
+    };
+    
+    return outline;
+  } catch (error) {
+    console.error(`  ❌ アウトライン生成エラー: ${error instanceof Error ? error.message : String(error)}`);
+    
+    // エラー時はフォールバック
+    const mockOutline: TopicOutline = {
+      id: `outline-${topic.id}`,
+      topicId: topic.id,
+      title: topic.title,
+      summary: [
+        '記事の要約をこちらに表示',
+        '重要なポイントを整理',
+        '読者への価値を提供'
+      ],
+      sections: [
+        {
+          heading: '概要',
+          points: ['主な内容の説明', '背景情報']
+        },
+        {
+          heading: '詳細',
+          points: ['具体的な内容', 'データと事実']
+        },
+        {
+          heading: 'まとめ',
+          points: ['今後の展望', '関連情報']
+        }
+      ],
+      tags: [topic.genre, topic.section || 'news'],
+      createdAt: new Date().toISOString()
+    };
+    
+    return mockOutline;
+  }
 };
 
 // JSON出力
@@ -184,7 +222,7 @@ const buildOutlines = async () => {
       const prev = await prevPromise;
       
       try {
-        const outline = await generateOutline(topic);
+        const outline = await generateOutlineForTopic(topic);
         await saveOutlineToFile(outline);
         
         // トピックステータスを更新

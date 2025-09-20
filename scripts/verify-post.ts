@@ -2,11 +2,12 @@
 
 /**
  * 記事検証スクリプト
- * 出典整合性チェック、ファクトチェック、誇大表現防止
+ * 出典整合性チェック、ファクトチェック、誇大表現防止をGemini APIで実施
  */
 
 import { createClient } from '@supabase/supabase-js';
 import type { VerificationResult, VerificationIssue } from '../src/domain/types';
+import { verifyArticle } from '../lib/gemini-client';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
@@ -26,7 +27,7 @@ const supabaseAdmin = createClient(
   }
 );
 
-// 検証処理（モック実装）
+// Gemini APIで検証処理
 const verifyContent = async (content: string, topic: any): Promise<VerificationResult> => {
   const issues: VerificationIssue[] = [];
   const suggestions: string[] = [];
@@ -49,23 +50,43 @@ const verifyContent = async (content: string, topic: any): Promise<VerificationR
     });
   }
 
-  // 3. 過度な断定表現チェック
-  const assertiveWords = ['絶対', '必ず', '間違いなく', '確実に'];
-  const hasAssertive = assertiveWords.some(word => content.includes(word));
-  if (hasAssertive) {
-    issues.push({
-      type: 'warning',
-      message: '断定的な表現が含まれています'
+  try {
+    console.log('  🔍 Gemini APIで詳細検証中...');
+    
+    // Gemini APIで記事を検証
+    const verificationResult = await verifyArticle(
+      content,
+      [{
+        title: topic.title,
+        url: topic.url
+      }]
+    );
+    
+    // Geminiからの問題点を追加
+    verificationResult.issues.forEach((issue: string) => {
+      issues.push({
+        type: 'warning',
+        message: issue
+      });
     });
-    suggestions.push('より控えめな表現に変更することを検討してください');
+    
+    // Geminiからの提案を追加
+    suggestions.push(...verificationResult.suggestions);
+    
+  } catch (error) {
+    console.error(`  ❌ 検証エラー: ${error instanceof Error ? error.message : String(error)}`);
+    
+    // エラー時は基本的な検証のみ
+    const assertiveWords = ['絶対', '必ず', '間違いなく', '確実に'];
+    const hasAssertive = assertiveWords.some(word => content.includes(word));
+    if (hasAssertive) {
+      issues.push({
+        type: 'warning',
+        message: '断定的な表現が含まれています'
+      });
+      suggestions.push('より控えめな表現に変更することを検討してください');
+    }
   }
-
-  // 4. 公開日の言及チェック
-  if (!content.includes('publishedAt') && !content.includes('公開日')) {
-    suggestions.push('記事の公開日を本文中で言及することを検討してください');
-  }
-
-  // TODO: 実際のAI APIを使用した詳細な検証を実装
 
   return {
     isValid: issues.filter(issue => issue.type === 'error').length === 0,

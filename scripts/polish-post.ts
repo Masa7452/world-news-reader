@@ -2,10 +2,11 @@
 
 /**
  * 記事校正スクリプト
- * 生成されたMDXドラフトの日本語自然化と品質向上
+ * 生成されたMDXドラフトをGemini APIで日本語自然化と品質向上
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { polishArticle } from '../lib/gemini-client';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
@@ -25,19 +26,37 @@ const supabaseAdmin = createClient(
   }
 );
 
-// 校正処理（モック実装）
+// Gemini APIで校正処理
 const polishContent = async (content: string): Promise<string> => {
-  // TODO: 実際のAI API呼び出しを実装
-  // 現在は基本的な文字列整形のみ
-  
-  return content
-    // 連続する空行を1つに
-    .replace(/\n\n\n+/g, '\n\n')
-    // 行末の余分な空白を削除
-    .replace(/[ \t]+$/gm, '')
-    // 文末に適切な句読点を追加
-    .replace(/([^。！？\n])(\n)/g, '$1。$2')
-    .trim();
+  try {
+    // フロントマターと本文を分離
+    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n/);
+    if (!frontmatterMatch) {
+      return content; // フロントマターがない場合はそのまま返す
+    }
+    
+    const frontmatter = frontmatterMatch[0];
+    const articleBody = content.substring(frontmatter.length);
+    
+    console.log('  📝 Gemini APIで校正中...');
+    
+    // Gemini APIで本文を校正
+    const polishedBody = await polishArticle(articleBody);
+    
+    // フロントマターと校正済み本文を結合
+    return frontmatter + polishedBody;
+    
+  } catch (error) {
+    console.error(`  ❌ 校正エラー: ${error instanceof Error ? error.message : String(error)}`);
+    
+    // エラー時は基本的な文字列整形のみ
+    return content
+      // 連続する空行を1つに
+      .replace(/\n\n\n+/g, '\n\n')
+      // 行末の余分な空白を削除
+      .replace(/[ \t]+$/gm, '')
+      .trim();
+  }
 };
 
 // ドラフトファイルの取得

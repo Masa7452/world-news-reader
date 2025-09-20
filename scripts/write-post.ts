@@ -2,11 +2,12 @@
 
 /**
  * MDXドラフト生成スクリプト
- * アウトラインをもとにMDX形式のドラフト記事を生成
+ * アウトラインをもとにGemini APIでMDX形式のドラフト記事を生成
  */
 
 import { createClient } from '@supabase/supabase-js';
 import type { TopicOutline } from '../src/domain/types';
+import { generateArticle } from '../lib/gemini-client';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
@@ -45,7 +46,22 @@ const generateMdxDraft = async (topic: any, outline: TopicOutline): Promise<stri
     .substring(0, 50);
 
   const sourceName = topic.section || 'NewsAPI';
-  const frontmatter = `---
+  
+  try {
+    console.log(`  ✍️  ${topic.title} の記事を生成中...`);
+    
+    // Gemini APIで記事本文を生成
+    const articleContent = await generateArticle(
+      outline.title,
+      JSON.stringify(outline.sections, null, 2),
+      [{
+        title: topic.title,
+        url: topic.url,
+        abstract: topic.abstract
+      }]
+    );
+    
+    const frontmatter = `---
 title: "${outline.title}"
 description: "${topic.abstract || outline.summary.join('、')}"
 publishedAt: "${topic.published_at}"
@@ -56,7 +72,34 @@ sourceName: "${sourceName}"
 sourceUrl: "${topic.url}"
 ---`;
 
-  const content = `
+    const content = `
+# ${outline.title}
+
+${outline.summary.map(point => `- ${point}`).join('\n')}
+
+${articleContent}
+
+${generateSourceBlock(topic)}
+`;
+
+    return `${frontmatter}\n${content}`;
+    
+  } catch (error) {
+    console.error(`  ❌ 記事生成エラー: ${error instanceof Error ? error.message : String(error)}`);
+    
+    // エラー時はアウトラインベースの簡易版を返す
+    const frontmatter = `---
+title: "${outline.title}"
+description: "${topic.abstract || outline.summary.join('、')}"
+publishedAt: "${topic.published_at}"
+genre: "${topic.genre}"
+tags: [${outline.tags.map(tag => `"${tag}"`).join(', ')}]
+slug: "${slug}"
+sourceName: "${sourceName}"
+sourceUrl: "${topic.url}"
+---`;
+
+    const content = `
 # ${outline.title}
 
 ${outline.summary.map(point => `- ${point}`).join('\n')}
@@ -70,7 +113,8 @@ ${section.points.map(point => `- ${point}`).join('\n')}
 ${generateSourceBlock(topic)}
 `;
 
-  return `${frontmatter}\n${content}`;
+    return `${frontmatter}\n${content}`;
+  }
 };
 
 // ファイル保存
