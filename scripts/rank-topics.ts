@@ -18,35 +18,49 @@ const supabaseAdmin = createClient(
   }
 );
 
-// ジャンル判定
+// ジャンル判定（TheNewsAPI対応）
 const detectGenre = (item: SourceItem): Genre => {
-  const { section, tags, title, abstract } = item;
-  const text = `${title} ${abstract} ${section} ${tags?.join(' ')}`.toLowerCase();
+  const tags = (item.tags ?? []).map(tag => tag.toLowerCase());
+
+  if (tags.some(tag => ['health', 'wellness', 'medical'].includes(tag))) return 'health';
+  if (tags.some(tag => ['technology', 'tech', 'ai'].includes(tag))) return 'technology';
+  if (tags.some(tag => ['business', 'economy', 'finance'].includes(tag))) return 'business';
+  if (tags.some(tag => ['science', 'research', 'climate'].includes(tag))) return 'science';
+  if (tags.some(tag => ['culture', 'entertainment', 'arts'].includes(tag))) return 'culture';
+  if (tags.some(tag => ['lifestyle', 'travel', 'food', 'fashion'].includes(tag))) return 'lifestyle';
+
+  const text = `${item.title} ${item.abstract ?? ''} ${item.bodyText ?? ''} ${item.section ?? ''}`.toLowerCase();
 
   if (text.includes('health') || text.includes('medical')) return 'health';
   if (text.includes('technology') || text.includes('ai') || text.includes('software')) return 'technology';
   if (text.includes('lifestyle') || text.includes('wellness')) return 'lifestyle';
-  if (text.includes('culture') || text.includes('art')) return 'culture';
-  if (text.includes('business') || text.includes('economy')) return 'business';
-  if (text.includes('science') || text.includes('research')) return 'science';
-  
+  if (text.includes('culture') || text.includes('art') || text.includes('entertainment')) return 'culture';
+  if (text.includes('business') || text.includes('economy') || text.includes('finance')) return 'business';
+  if (text.includes('science') || text.includes('research') || text.includes('climate')) return 'science';
+
   return 'news';
 };
 
-// スコア計算
+// スコア計算（TheNewsAPI対応）
 const calculateScore = (item: SourceItem): number => {
   let score = 0.5; // 基準スコア
 
-  // 語数による加点
-  if (item.wordCount) {
-    if (item.wordCount >= 500 && item.wordCount <= 2000) {
-      score += 0.2; // 適切な長さ
+  // bodyText（snippet）の長さによる加点
+  if (item.bodyText) {
+    const snippetLength = item.bodyText.length;
+    if (snippetLength >= 100 && snippetLength <= 500) {
+      score += 0.2; // 適切な長さの要約
     }
   }
 
   // 画像がある場合は加点
   if (item.image) {
     score += 0.1;
+  }
+
+  // abstractとbodyTextの両方がある場合は加点
+  if (item.abstract && item.bodyText && item.abstract !== item.bodyText) {
+    score += 0.1; // 詳細な要約情報
   }
 
   // 要約がある場合は加点
@@ -111,7 +125,33 @@ const rankTopics = async () => {
   const topics = await sources.reduce(
     async (prevPromise, source) => {
       const prev = await prevPromise;
-      const item = source.raw_data as SourceItem;
+      const rawData = (source.raw_data ?? {}) as {
+        section?: string;
+        tags?: ReadonlyArray<string>;
+        image?: SourceItem['image'];
+        bodyText?: string;
+        sourceName?: string;
+      };
+
+      const item: SourceItem = {
+        provider: 'newsapi',
+        providerId: source.provider_id,
+        url: source.url,
+        title: source.title,
+        abstract: source.abstract ?? undefined,
+        publishedAt: source.published_at,
+        section: rawData.section,
+        subsection: undefined,
+        byline: undefined,
+        tags: rawData.tags ?? [],
+        type: undefined,
+        wordCount: undefined,
+        image: rawData.image,
+        body: undefined,
+        bodyText: rawData.bodyText,
+        sourceName: 'NewsAPI',
+      };
+
       const canonicalKey = generateCanonicalKey(item);
 
       // 重複チェック
