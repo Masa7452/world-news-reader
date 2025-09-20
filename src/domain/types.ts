@@ -8,7 +8,7 @@
 // ========================================
 
 /** データプロバイダー */
-export type Provider = 'guardian' | 'newsapi';
+export type Provider = 'newsapi';
 
 /** 記事のジャンル */
 export type Genre = 
@@ -49,17 +49,17 @@ export type ImageInfo = {
 
 /** 
  * APIから取得した記事の正規化型
- * Guardian / NewsAPI など複数ソースを統一的に扱う
+ * NewsAPI のレスポンスを統一的に扱う
  */
 export type SourceItem = {
   readonly provider: Provider;
-  readonly providerId: string;            // 供給元の安定識別子
+  readonly providerId: string;            // 供給元の安定識別子（URL使用）
   readonly url: string;                   // 記事URL
   readonly title: string;                 // 見出し
   readonly abstract?: string;             // 要旨
   readonly publishedAt: string;           // ISO8601形式
   readonly section?: string;              // セクション
-  readonly subsection?: string;           // サブセクション（NYT用）
+  readonly subsection?: string;           // サブセクション
   readonly byline?: string;               // 署名・著者
   readonly tags?: readonly string[];      // タグ・キーワード
   readonly type?: string;                 // 記事種別
@@ -67,7 +67,7 @@ export type SourceItem = {
   readonly image?: ImageInfo;             // メイン画像
   readonly body?: string;                 // 本文（HTML形式）
   readonly bodyText?: string;             // 本文（プレーンテキスト）
-  readonly sourceName: 'The Guardian' | 'NewsAPI';
+  readonly sourceName: 'NewsAPI';         // NewsAPI固定
 };
 
 // ========================================

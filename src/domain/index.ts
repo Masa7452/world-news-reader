@@ -5,20 +5,6 @@
 // 型定義のエクスポート
 export * from './types';
 
-// Guardian APIアダプタのエクスポート
-export {
-  normalizeGuardianItem,
-  normalizeGuardianResponse,
-  extractGuardianPagination,
-  detectGuardianGenre,
-  type GuardianApiResponse,
-  type GuardianArticle,
-  type GuardianFields,
-  type GuardianTag,
-  type GuardianElement,
-  type GuardianAsset,
-} from './guardian';
-
 // NewsAPIアダプタのエクスポート
 export {
   normalizeNewsApiArticle,

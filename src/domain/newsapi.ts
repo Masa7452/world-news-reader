@@ -1,6 +1,9 @@
 /**
  * NewsAPI.org アダプタ
  * NewsAPIの記事レスポンスを正規化
+ * 
+ * @see https://newsapi.org/docs/endpoints/top-headlines
+ * @see https://newsapi.org/docs/endpoints/everything
  */
 
 import type { SourceItem, ImageInfo } from './types';
@@ -50,6 +53,8 @@ export type NewsApiResponse = NewsApiArticlesResponse | NewsApiErrorResponse;
 
 /**
  * NewsAPIの記事を正規化形式に変換
+ * @param article NewsAPI記事データ
+ * @returns 正規化された記事データ
  */
 export const normalizeNewsApiArticle = (article: NewsApiArticle): SourceItem => {
   const content = sanitizeNewsApiContent(article.content);
@@ -58,7 +63,7 @@ export const normalizeNewsApiArticle = (article: NewsApiArticle): SourceItem => 
 
   return {
     provider: 'newsapi',
-    providerId: article.url,
+    providerId: article.url,  // URLを安定識別子として使用
     url: article.url,
     title: article.title,
     abstract: article.description ?? content,
@@ -68,10 +73,10 @@ export const normalizeNewsApiArticle = (article: NewsApiArticle): SourceItem => 
     byline: article.author ?? undefined,
     tags,
     type: undefined,
-    wordCount: undefined,
+    wordCount: undefined,  // NewsAPIでは提供されない
     image,
-    body: undefined,
-    bodyText: content,
+    body: undefined,       // 完全な本文は有償APIが必要
+    bodyText: content,     // contentフィールドを暫定使用
     sourceName: 'NewsAPI',
   };
 };
@@ -131,7 +136,7 @@ export const detectNewsApiGenre = (item: SourceItem): string => {
 const sanitizeNewsApiContent = (content?: string | null): string | undefined => {
   if (!content) return undefined;
   return content
-    .replace(/\s*\[\+\d+\s+chars]?$/u, '')
+    .replace(/\s*\[\+\d+\s+chars\]?$/u, '')
     .trim() || undefined;
 };
 

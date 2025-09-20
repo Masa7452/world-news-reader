@@ -6,7 +6,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ========================================
 CREATE TABLE IF NOT EXISTS sources (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  provider VARCHAR(50) NOT NULL CHECK (provider IN ('guardian', 'nyt')),
+  provider VARCHAR(50) NOT NULL CHECK (provider IN ('newsapi')),
   provider_id TEXT NOT NULL,
   url TEXT NOT NULL,
   title TEXT NOT NULL,
