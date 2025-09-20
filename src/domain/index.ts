@@ -5,13 +5,13 @@
 // 型定義のエクスポート
 export * from './types';
 
-// NewsAPIアダプタのエクスポート
+// TheNewsAPIアダプタのエクスポート
 export {
   normalizeNewsApiArticle,
   normalizeNewsApiResponse,
   detectNewsApiGenre,
-  type NewsApiSource,
   type NewsApiArticle,
+  type NewsApiMeta,
   type NewsApiArticlesResponse,
   type NewsApiErrorResponse,
   type NewsApiResponse,

@@ -1,8 +1,15 @@
 #!/usr/bin/env node
 
 /**
- * NewsAPI記事取得スクリプト
- * 使用方法: pnpm tsx scripts/fetch-newsapi.ts
+ * TheNewsAPI記事取得スクリプト
+ * 使用方法: pnpm tsx scripts/fetch-newsapi.ts [options]
+ * オプション:
+ *   --days N: N日間のデータを取得（デフォルト: 1）
+ *   --query "keyword": 検索クエリ
+ *   --sources "cnn,bbc": ソース指定
+ *   --locale us: 地域指定
+ *   --language en: 言語指定
+ *   --dry-run: DB保存をスキップしJSONのみ出力
  * 環境変数:
  *   - USE_SUPABASE: 'false'に設定するとDB保存をスキップ（デフォルト: true）
  *   - NODE_ENV: 'development'の場合、JSONファイル出力を有効化
@@ -22,6 +29,8 @@ const parseCliArgs = () => {
     days: 1,
     query: undefined as string | undefined,
     sources: undefined as string | undefined,
+    locale: undefined as string | undefined,
+    language: 'en' as string,
     dryRun: false
   };
 
@@ -34,6 +43,12 @@ const parseCliArgs = () => {
     }
     if (arg === '--sources' && args[index + 1]) {
       options.sources = args[index + 1];
+    }
+    if (arg === '--locale' && args[index + 1]) {
+      options.locale = args[index + 1];
+    }
+    if (arg === '--language' && args[index + 1]) {
+      options.language = args[index + 1];
     }
     if (arg === '--dry-run') {
       options.dryRun = true;
@@ -79,7 +94,7 @@ const saveToJSON = async (items: readonly SourceItem[]): Promise<void> => {
 };
 
 const fetchNewsApiArticles = async () => {
-  console.log('📰 NewsAPI記事の取得を開始...');
+  console.log('📰 TheNewsAPI記事の取得を開始...');
   
   if (!process.env.NEWS_API_KEY) {
     console.error('❌ NEWS_API_KEYが設定されていません');
@@ -101,6 +116,10 @@ const fetchNewsApiArticles = async () => {
     console.log(`📰 ソース指定: ${options.sources}`);
   }
   
+  if (options.locale) {
+    console.log(`🌍 地域指定: ${options.locale}`);
+  }
+  
   try {
     // 環境変数とCLIでモードを制御
     const USE_SUPABASE = process.env.USE_SUPABASE !== 'false' && !options.dryRun;
@@ -115,19 +134,20 @@ const fetchNewsApiArticles = async () => {
       console.log(`📊 既存レコード数: ${existingCount}件`);
     }
     
-    // 記事を取得
+    // 記事を取得（TheNewsAPIの/news/allエンドポイント使用）
     const fetchOptions = {
-      from,
-      to,
-      language: 'en' as const,
-      sortBy: 'publishedAt' as const,
-      pageSize: 100,
-      pages: 1,
-      ...(options.query && { q: options.query }),
-      ...(options.sources && { sources: options.sources.split(',') })
+      published_after: from,
+      published_before: to,
+      language: options.language,
+      sort: 'published_desc' as const,
+      limit: 3, // 無料プランの制限
+      pages: 30, // 最大100件取得のため（3 × 30 = 90件程度）
+      ...(options.query && { search: options.query }),
+      ...(options.sources && { sources: options.sources.split(',') }),
+      ...(options.locale && { locale: options.locale })
     };
     
-    const items = await client.fetchEverything(fetchOptions);
+    const items = await client.fetchAll(fetchOptions);
     
     console.log(`✅ ${items.length}件の記事を取得しました`);
 

@@ -1,50 +1,52 @@
 /**
- * NewsAPI.org アダプタ
- * NewsAPIの記事レスポンスを正規化
+ * TheNewsAPI アダプタ
+ * TheNewsAPIの記事レスポンスを正規化
  * 
- * @see https://newsapi.org/docs/endpoints/top-headlines
- * @see https://newsapi.org/docs/endpoints/everything
+ * @see https://www.thenewsapi.com/documentation
  */
 
 import type { SourceItem, ImageInfo } from './types';
 
 // ========================================
-// NewsAPI レスポンス型定義
+// TheNewsAPI レスポンス型定義
 // ========================================
 
-/** NewsAPIが返却するソース情報 */
-export type NewsApiSource = {
-  id: string | null;
-  name: string | null;
+/** TheNewsAPIの記事データ */
+export type NewsApiArticle = {
+  uuid: string;
+  title: string;
+  description: string;
+  snippet: string;
+  url: string;
+  image_url?: string | null;
+  language: string;
+  published_at: string;
+  source: string;
+  categories: readonly string[];
+  locale: string;
+  relevance_score?: number;
 };
 
-/** NewsAPIの記事データ */
-export type NewsApiArticle = {
-  source: NewsApiSource;
-  author?: string | null;
-  title: string;
-  description?: string | null;
-  url: string;
-  urlToImage?: string | null;
-  publishedAt: string;
-  content?: string | null;
+/** TheNewsAPIのメタ情報 */
+export type NewsApiMeta = {
+  found: number;
+  returned: number;
+  limit: number;
+  page: number;
 };
 
 /** 記事リストを返却する成功レスポンス */
 export type NewsApiArticlesResponse = {
-  status: 'ok';
-  totalResults: number;
-  articles: NewsApiArticle[];
+  data: readonly NewsApiArticle[];
+  meta: NewsApiMeta;
 };
 
 /** エラー時のレスポンス */
 export type NewsApiErrorResponse = {
-  status: 'error';
-  code: string;
   message: string;
 };
 
-/** NewsAPIのレスポンス全体型 */
+/** TheNewsAPIのレスポンス全体型 */
 export type NewsApiResponse = NewsApiArticlesResponse | NewsApiErrorResponse;
 
 // ========================================
@@ -52,74 +54,91 @@ export type NewsApiResponse = NewsApiArticlesResponse | NewsApiErrorResponse;
 // ========================================
 
 /**
- * NewsAPIの記事を正規化形式に変換
- * @param article NewsAPI記事データ
+ * TheNewsAPIの記事を正規化形式に変換
+ * @param article TheNewsAPI記事データ
  * @returns 正規化された記事データ
  */
 export const normalizeNewsApiArticle = (article: NewsApiArticle): SourceItem => {
-  const content = sanitizeNewsApiContent(article.content);
   const image = extractNewsApiImage(article);
   const tags = buildNewsApiTags(article);
 
   return {
     provider: 'newsapi',
-    providerId: article.url,  // URLを安定識別子として使用
+    providerId: article.uuid,  // UUIDを安定識別子として使用
     url: article.url,
     title: article.title,
-    abstract: article.description ?? content,
-    publishedAt: article.publishedAt,
-    section: article.source?.name ?? undefined,
+    abstract: article.description,
+    publishedAt: article.published_at,
+    section: article.source,
     subsection: undefined,
-    byline: article.author ?? undefined,
+    byline: undefined,  // TheNewsAPIでは著者情報が提供されない
     tags,
     type: undefined,
-    wordCount: undefined,  // NewsAPIでは提供されない
+    wordCount: undefined,  // TheNewsAPIでは提供されない
     image,
-    body: undefined,       // 完全な本文は有償APIが必要
-    bodyText: content,     // contentフィールドを暫定使用
+    body: undefined,       // TheNewsAPIでは本文は提供されない
+    bodyText: article.snippet,  // snippetを本文として使用
     sourceName: 'NewsAPI',
   };
 };
 
 /**
- * NewsAPIレスポンス全体を正規化
+ * TheNewsAPIレスポンス全体を正規化
  */
 export const normalizeNewsApiResponse = (
   response: NewsApiResponse
 ): readonly SourceItem[] => {
-  if (response.status !== 'ok') {
-    console.warn('NewsAPI returned an error response:', response.code, response.message);
+  // エラーレスポンスの場合
+  if ('message' in response) {
+    console.warn('TheNewsAPI returned an error response:', response.message);
     return [];
   }
 
-  return response.articles.map(normalizeNewsApiArticle);
+  return response.data.map(normalizeNewsApiArticle);
 };
 
 /**
- * NewsAPI記事のジャンルを推定
+ * TheNewsAPI記事のジャンルを推定
  */
-export const detectNewsApiGenre = (item: SourceItem): string => {
-  const section = item.section?.toLowerCase() ?? '';
-  const text = `${item.title} ${item.abstract ?? ''}`.toLowerCase();
-  const tags = (item.tags ?? []).map(tag => tag.toLowerCase());
-  const corpus = [section, text, tags.join(' ')].join(' ');
-
-  if (corpus.includes('technology') || corpus.includes('tech') || corpus.includes('ai') || corpus.includes('software')) {
+export const detectNewsApiGenre = (article: NewsApiArticle): string => {
+  // TheNewsAPIのcategoriesを優先
+  const categories = article.categories.map(cat => cat.toLowerCase());
+  
+  if (categories.includes('technology') || categories.includes('tech')) {
     return 'technology';
   }
-  if (corpus.includes('business') || corpus.includes('finance') || corpus.includes('market') || corpus.includes('economy')) {
+  if (categories.includes('business')) {
     return 'business';
   }
-  if (corpus.includes('science') || corpus.includes('space') || corpus.includes('climate') || corpus.includes('research')) {
+  if (categories.includes('science')) {
     return 'science';
   }
-  if (corpus.includes('health') || corpus.includes('medical') || corpus.includes('covid') || corpus.includes('wellness')) {
+  if (categories.includes('health')) {
     return 'health';
   }
-  if (corpus.includes('culture') || corpus.includes('art') || corpus.includes('music') || corpus.includes('film') || corpus.includes('entertainment')) {
+  if (categories.includes('entertainment') || categories.includes('culture')) {
     return 'culture';
   }
-  if (corpus.includes('lifestyle') || corpus.includes('travel') || corpus.includes('fashion') || corpus.includes('food')) {
+  
+  // カテゴリが不明な場合はテキスト解析
+  const text = `${article.title} ${article.description} ${article.snippet}`.toLowerCase();
+  
+  if (text.includes('technology') || text.includes('ai') || text.includes('software')) {
+    return 'technology';
+  }
+  if (text.includes('business') || text.includes('finance') || text.includes('market')) {
+    return 'business';
+  }
+  if (text.includes('science') || text.includes('research') || text.includes('climate')) {
+    return 'science';
+  }
+  if (text.includes('health') || text.includes('medical') || text.includes('wellness')) {
+    return 'health';
+  }
+  if (text.includes('culture') || text.includes('art') || text.includes('music') || text.includes('entertainment')) {
+    return 'culture';
+  }
+  if (text.includes('lifestyle') || text.includes('travel') || text.includes('fashion') || text.includes('food')) {
     return 'lifestyle';
   }
 
@@ -131,23 +150,13 @@ export const detectNewsApiGenre = (item: SourceItem): string => {
 // ========================================
 
 /**
- * NewsAPIのcontentフィールドを整形
- */
-const sanitizeNewsApiContent = (content?: string | null): string | undefined => {
-  if (!content) return undefined;
-  return content
-    .replace(/\s*\[\+\d+\s+chars\]?$/u, '')
-    .trim() || undefined;
-};
-
-/**
- * ソース/著者情報からタグを作成
+ * ソース/カテゴリ情報からタグを作成
  */
 const buildNewsApiTags = (article: NewsApiArticle): readonly string[] => {
   const rawTags = [
-    article.source?.name ?? undefined,
-    article.source?.id ?? undefined,
-    article.author ?? undefined,
+    article.source,
+    article.locale,
+    ...article.categories,
   ].filter((value): value is string => Boolean(value));
 
   const uniqueTags = Array.from(new Set(rawTags));
@@ -158,11 +167,11 @@ const buildNewsApiTags = (article: NewsApiArticle): readonly string[] => {
  * 画像情報を抽出
  */
 const extractNewsApiImage = (article: NewsApiArticle): ImageInfo | undefined => {
-  if (!article.urlToImage) {
+  if (!article.image_url) {
     return undefined;
   }
 
   return {
-    url: article.urlToImage,
+    url: article.image_url,
   };
 };

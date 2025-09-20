@@ -60,21 +60,20 @@ export const saveSourceItems = async (
           return;
         }
         
-        // 新規レコードを挿入（NewsAPI専用）
+        // 新規レコードを挿入（TheNewsAPI専用）
         const sourceData = {
           provider: item.provider, // 'newsapi'固定
-          provider_id: item.providerId, // URL使用
+          provider_id: item.providerId, // UUID使用
           url: item.url,
           title: item.title,
           abstract: item.abstract,
           published_at: item.publishedAt,
           raw_data: {
-            // NewsAPI固有フィールド
-            section: item.section, // source.name
-            byline: item.byline, // author
-            tags: item.tags, // source情報から生成
-            image: item.image, // urlToImage
-            bodyText: item.bodyText, // content（切り詰め済み）
+            // TheNewsAPI固有フィールド
+            section: item.section, // source（媒体名）
+            tags: item.tags, // source, locale, categoriesから生成
+            image: item.image, // image_url
+            bodyText: item.bodyText, // snippet（拡張要約）
             sourceName: item.sourceName // 'NewsAPI'固定
           }
         };
