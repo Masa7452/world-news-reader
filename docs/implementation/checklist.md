@@ -30,8 +30,10 @@
 - [ ] 成功 / 失敗通知が Slack 等に届く
 - [ ] Runbook が最新化されている
 
-## Phase TheNewsAPI Migration
-- [ ] Guardian / NYT 関連ファイル・ドキュメントが削除済み
-- [ ] 旧サンプルデータが TheNewsAPI ベースに置き換わっている
-- [ ] README / tech-spec / 各フェーズ設計書が TheNewsAPI 仕様を反映
-- [ ] Supabase 既存レコードの `provider` が `'newsapi'` に統一
+## Phase 6: ポストローンチ整備
+- [ ] ホーム／記事詳細／ダッシュボードが Supabase 実データを表示
+- [ ] Gemini API を用いた Outline/Writer/Polisher/Verifier が実装済み
+- [ ] `scripts/pipeline.ts` のメトリクスと Slack 通知が稼働
+- [ ] GitHub Actions（dry-run / 本番モード）が成功する
+- [ ] README / docs に最新構成（TheNewsAPI & Gemini）が反映
+- [ ] 重大エラー（429 / Gemini / Supabase）を Runbook と照合し検証済み

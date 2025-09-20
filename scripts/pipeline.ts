@@ -120,7 +120,7 @@ const runPipeline = async () => {
       ];
       
       try {
-        const result = await runScript('fetch-newsapi', fetchArgs);
+        await runScript('fetch-newsapi', fetchArgs);
         // TODO: 実際の取得件数を解析
         metrics.fetchedArticles = options.dryRun ? 0 : 10; // 仮の値
         await logWithNotification('success', `記事取得完了: ${metrics.fetchedArticles}件`);
@@ -139,7 +139,7 @@ const runPipeline = async () => {
     console.log('\n🎯 Step 2: トピック選定');
     if (!options.dryRun) {
       try {
-        const result = await runScript('rank-topics');
+        await runScript('rank-topics');
         // TODO: 実際の選定件数を解析
         metrics.selectedTopics = 5; // 仮の値
         await logWithNotification('success', `トピック選定完了: ${metrics.selectedTopics}件`);

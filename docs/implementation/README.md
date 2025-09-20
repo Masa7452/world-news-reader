@@ -52,6 +52,14 @@
 - **依存**: Phase 4完了
 - **所要時間**: 1-2日
 
+### [Phase 6: ポストローンチ整備](./phase-6-post-launch.md)
+**目的**: フロントエンドの実データ対応と Gemini ベースのパイプライン実装
+- モックデータ依存を排除し、Supabase から動的に記事を取得
+- Gemini API を用いたアウトライン生成〜検証フローを実装
+- Slack 通知・Runbook整備・本番運用準備
+- **依存**: Phase 5完了
+- **所要時間**: 2-3日
+
 ### [Phase NewsAPI Migration](./phase-newsapi-migration.md)
 **目的**: NewsAPI 単独構成への移行と旧プロバイダ資産の撤廃
 - Guardian/NYT 関連コード・ドキュメントの削除

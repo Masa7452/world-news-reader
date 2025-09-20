@@ -10,7 +10,7 @@
 
 ## プロジェクト概要
 
-World News Readerは、The GuardianやThe New York Timesなどの信頼できる国際メディアから厳選された記事を、読みやすい日本語で提供するWebアプリケーションです。急がず、じっくりと読める記事構成で、英語学習にもお使いいただけます。
+World News Readerは、TheNewsAPI（https://www.thenewsapi.com/）から取得した記事をもとに、読みやすい日本語で提供するWebアプリケーションです。急がず、じっくりと読める記事構成で、英語学習にもお使いいただけます。
 
 ## 主な特徴
 
@@ -45,8 +45,8 @@ World News Readerは、The GuardianやThe New York Timesなどの信頼できる
 - **フロントエンド**: Next.js (App Router)
 - **バックエンド**: Supabase
 - **スタイリング**: Tailwind CSS
-- **AI/LLM**: OpenAI API / Anthropic Claude API
-- **外部API**: New York Times API, The Guardian API
+- **AI/LLM**: Gemini API（Google AI Studio）
+- **外部API**: TheNewsAPI
 
 ## プロジェクト構造
 ```
@@ -190,6 +190,7 @@ pnpm tsx scripts/pipeline.ts --days 3 --query "AI"   # 3日間のAI関連記事�
 - [要件定義書](./docs/requirement-spec.md)
 - [技術仕様書](./docs/tech-spec.md)
 - [UI/UX仕様書](./docs/ui-spec.md)
+- [Supabase 操作ガイド](./docs/supabase-guide.md)
 
 ---
 

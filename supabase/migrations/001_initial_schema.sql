@@ -171,7 +171,7 @@ COMMENT ON TABLE articles IS '生成された記事データ';
 COMMENT ON TABLE topic_outlines IS 'AIが生成した記事構成';
 COMMENT ON TABLE article_issues IS '検証で発見された問題';
 
-COMMENT ON COLUMN sources.provider IS 'データ提供元 (guardian/nyt)';
+COMMENT ON COLUMN sources.provider IS 'データ提供元 (the news api)';
 COMMENT ON COLUMN sources.provider_id IS '提供元での一意識別子';
 COMMENT ON COLUMN topics.canonical_key IS '重複排除用の正規化キー';
 COMMENT ON COLUMN topics.score IS '記事の品質スコア (0.00-1.00)';
