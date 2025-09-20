@@ -13,6 +13,20 @@
  * 環境変数:
  *   - USE_SUPABASE: 'false'に設定するとDB保存をスキップ（デフォルト: true）
  *   - NODE_ENV: 'development'の場合、JSONファイル出力を有効化
+ * 
+ * エラー処理:
+ *   - 429 (Rate Limit): 指数バックオフでリトライ（最大3回）
+ *   - 5xx (Server Error): 指数バックオフでリトライ（最大3回）
+ *   - その他: 即座に失敗
+ * 
+ * Runbook:
+ *   1. レート制限エラーの場合:
+ *      - NEWS_API_KEY のプランを確認（無料プラン: 100req/day）
+ *      - --days を小さくして再実行
+ *   2. サーバーエラーの場合:
+ *      - 5分待ってから再実行
+ *   3. 認証エラーの場合:
+ *      - NEWS_API_KEY の有効性を確認
  */
 
 import 'dotenv/config';
@@ -170,6 +184,25 @@ const fetchNewsApiArticles = async () => {
     
   } catch (error) {
     console.error('❌ 取得エラー:', error instanceof Error ? error.message : String(error));
+    
+    // エラーの種類に応じたRunbook情報を表示
+    if (error instanceof Error) {
+      if (error.message.includes('429') || error.message.includes('rate limit')) {
+        console.error('\n📚 対処法: レート制限に達しています');
+        console.error('   - NEWS_API_KEY のプランを確認してください（無料プラン: 100req/day）');
+        console.error('   - --days オプションで取得期間を短くしてください');
+        console.error('   - 1時間後に再実行してください');
+      } else if (error.message.includes('401') || error.message.includes('unauthorized')) {
+        console.error('\n📚 対処法: 認証エラー');
+        console.error('   - NEWS_API_KEY が正しく設定されているか確認してください');
+        console.error('   - APIキーの有効期限を確認してください');
+      } else if (error.message.includes('5')) {
+        console.error('\n📚 対処法: サーバーエラー');
+        console.error('   - TheNewsAPI側の問題の可能性があります');
+        console.error('   - 5分後に再実行してください');
+      }
+    }
+    
     process.exit(1);
   }
 };

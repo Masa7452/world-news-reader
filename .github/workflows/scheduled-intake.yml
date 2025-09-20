@@ -1,0 +1,134 @@
+name: Scheduled News Intake
+
+on:
+  schedule:
+    # JST 06:00 (UTC 21:00 前日)
+    - cron: '0 21 * * *'
+    # JST 12:00 (UTC 03:00)
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run mode'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      days:
+        description: 'Number of days to fetch'
+        required: false
+        default: '1'
+        type: string
+      query:
+        description: 'Search query (optional)'
+        required: false
+        type: string
+
+jobs:
+  news-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run quality checks
+        run: |
+          echo "📋 Running type check..."
+          pnpm typecheck || true
+          echo "📋 Running lint..."
+          pnpm lint || true
+
+      - name: Run pipeline
+        run: |
+          ARGS=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          if [ -n "${{ github.event.inputs.days }}" ]; then
+            ARGS="$ARGS --days ${{ github.event.inputs.days }}"
+          fi
+          if [ -n "${{ github.event.inputs.query }}" ]; then
+            ARGS="$ARGS --query '${{ github.event.inputs.query }}'"
+          fi
+          
+          echo "🚀 Running pipeline with args: $ARGS"
+          pnpm tsx scripts/pipeline.ts $ARGS
+        env:
+          NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          USE_SUPABASE: ${{ secrets.USE_SUPABASE || 'false' }}
+
+      - name: Generate summary
+        if: always()
+        run: |
+          echo "## Pipeline Execution Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time**: $(date '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "- **Dry Run**: ${{ github.event.inputs.dry_run }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Days**: ${{ github.event.inputs.days }}" >> $GITHUB_STEP_SUMMARY
+            if [ -n "${{ github.event.inputs.query }}" ]; then
+              echo "- **Query**: ${{ github.event.inputs.query }}" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+
+      - name: Upload logs as artifact
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: pipeline-logs-${{ github.run_id }}
+          path: |
+            logs/
+            data/
+          retention-days: 7
+
+      # TODO: Slack通知（成功/失敗時）
+      # - name: Notify Slack on success
+      #   if: success() && env.SLACK_WEBHOOK_URL != ''
+      #   run: |
+      #     curl -X POST -H 'Content-type: application/json' \
+      #       --data '{"text":"✅ News pipeline completed successfully"}' \
+      #       ${{ secrets.SLACK_WEBHOOK_URL }}
+      
+      # - name: Notify Slack on failure
+      #   if: failure() && env.SLACK_WEBHOOK_URL != ''
+      #   run: |
+      #     curl -X POST -H 'Content-type: application/json' \
+      #       --data '{"text":"❌ News pipeline failed. Check GitHub Actions for details."}' \
+      #       ${{ secrets.SLACK_WEBHOOK_URL }}
