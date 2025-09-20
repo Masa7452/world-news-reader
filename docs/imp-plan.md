@@ -56,9 +56,9 @@
 **目的**: API差異を吸収するドメイン層と、記事生成パイプラインの土台を構築。  
 
 - `domain/types.ts` に正規化型 (`SourceItem`, `Topic`, `Article`) を定義  
-- `domain/guardian.ts`, `domain/nyt.ts` にモックレスポンス→正規化の変換処理  
+- `domain/newsapi.ts` にモックレスポンス→正規化の変換処理  
 - `scripts/` にパイプライン雛形作成：
-  - `fetch_guardian.ts`, `fetch_nyt.ts` → `data/sources.jsonl` 追記  
+  - `fetch_newsapi.ts`（仮）→ `data/sources.jsonl` 追記  
   - `rank_topics.ts`（重複排除・スコア付与）  
   - `build_outline.ts`（ジャンル別アウトライン）  
   - `write_post.ts`（MDXドラフト）  
@@ -73,10 +73,10 @@
 ---
 
 ### フェーズ4：実API接続 & 定期バッチ
-**目的**: NYT／Guardian APIから実データを取り込み、AIを通して下書きを生成。  
+**目的**: NewsAPI から実データを取り込み、AIを通して下書きを生成。  
 
-- 実API呼び出し実装（NYT/Guardian APIキー利用、429/5xx時は指数バックオフ）  
-- `scripts/fetch_guardian.ts` / `fetch_nyt.ts` を実データ取得に切り替え  
+- 実API呼び出し実装（NewsAPI Key、429/5xx時は指数バックオフ）  
+- `scripts/fetch_newsapi.ts` を実データ取得に切り替え  
 - AIエージェント（Selector, Outliner, Writer, Polisher, Verifier）連携  
 - GitHub Actions (`.github/workflows/scheduled-intake.yml`) で朝/昼に自動実行  
 - 承認ダッシュボード（下書き→公開操作）  
@@ -100,5 +100,13 @@
 **デプロイ成果物**:  
 - 安定稼働する本番サイト  
 - 自動生成＋レビュー承認フロー＋収益化導線  
+
+### フェーズX：NewsAPI への完全移行
+**目的**: Guardian / NYT 依存資産を撤廃し、NewsAPI 単独構成へ移行。  
+
+- ドメイン／APIクライアント／スクリプトを NewsAPI 用に統一  
+- Supabase schema / データ / CI を NewsAPI 前提で整合化  
+- ドキュメントとセットアップ手順を刷新  
+- 詳細は [docs/implementation/phase-newsapi-migration.md](./implementation/phase-newsapi-migration.md) を参照  
 
 ---

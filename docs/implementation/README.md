@@ -22,7 +22,7 @@
 
 ### [Phase 2: データ収集パイプライン](./phase-2-data-collection.md)
 **目的**: 外部APIからのデータ取得と正規化
-- Guardian/NYT APIとの連携実装
+- NewsAPI の連携実装
 - データの正規化と保存
 - レート制限とエラーハンドリング
 - **依存**: Phase 1完了
@@ -52,6 +52,14 @@
 - **依存**: Phase 4完了
 - **所要時間**: 1-2日
 
+### [Phase NewsAPI Migration](./phase-newsapi-migration.md)
+**目的**: NewsAPI 単独構成への移行と旧プロバイダ資産の撤廃
+- Guardian/NYT 関連コード・ドキュメントの削除
+- NewsAPI アダプタ／クライアント／スクリプトの導入
+- Supabase スキーマ・テスト・CI の整合性確認
+- **依存**: Phase 5 までの現行構成を把握していること
+- **所要時間**: 2-3日
+
 ## 開発方針（CLAUDE.md準拠）
 
 ### コーディング規約
@@ -70,7 +78,7 @@
 - **フロントエンド**: Next.js 15 (App Router)
 - **バックエンド**: Supabase
 - **AI/LLM**: OpenAI API / Anthropic Claude API
-- **外部API**: The Guardian API, The New York Times API
+- **外部API**: NewsAPI.org
 - **自動化**: GitHub Actions
 - **言語**: TypeScript（厳格な型安全性）
 

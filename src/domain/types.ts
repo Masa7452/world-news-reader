@@ -8,7 +8,7 @@
 // ========================================
 
 /** データプロバイダー */
-export type Provider = 'guardian' | 'nyt';
+export type Provider = 'guardian' | 'newsapi';
 
 /** 記事のジャンル */
 export type Genre = 
@@ -49,7 +49,7 @@ export type ImageInfo = {
 
 /** 
  * APIから取得した記事の正規化型
- * Guardian/NYT両方のデータを統一的に扱う
+ * Guardian / NewsAPI など複数ソースを統一的に扱う
  */
 export type SourceItem = {
   readonly provider: Provider;
@@ -67,7 +67,7 @@ export type SourceItem = {
   readonly image?: ImageInfo;             // メイン画像
   readonly body?: string;                 // 本文（HTML形式）
   readonly bodyText?: string;             // 本文（プレーンテキスト）
-  readonly sourceName: 'The Guardian' | 'The New York Times';
+  readonly sourceName: 'The Guardian' | 'NewsAPI';
 };
 
 // ========================================

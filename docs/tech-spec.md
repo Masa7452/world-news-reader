@@ -1,43 +1,45 @@
 # docs/tech-spec.md
 ## 開発者向け詳細仕様書（MVP/自動運用）
 
-この文書は運用の中心となる技術的な合意事項を定義します。API仕様の詳細は下記の個別設計書を参照してください。
-- The Guardian: docs/api-guardian.md
-- The New York Times: docs/api-nyt.md
+この文書は運用の中心となる技術的な合意事項を定義します。NewsAPI.org の詳細仕様は [docs/api-newsapi.md](./api-newsapi.md) を参照してください。
 
 ### 0. 重要方針（ドメイン集約）
-- API固有ロジック（フィールド差異の吸収・マッピング・前処理）は domain 層に集約し、他レイヤー（選定/構成/執筆/校正/公開）は正規化済み型のみを扱う。
+- API 固有ロジック（フィールド差異の吸収・マッピング・前処理）は domain 層に集約し、他レイヤー（選定 / 構成 / 執筆 / 校正 / 公開）は正規化済み型のみを扱う。
 - 正規化の入出力は厳密に型で拘束し、ドメイン契約（contract）としてバージョン管理する。
-- パイプラインやUIは provider に依存しない（拡張時は domain にアダプタを追加）。
+- 将来別ソースを追加する場合も domain にアダプタを追加することで拡張可能な構造を維持する。
 
 ### 1. 範囲と前提
-- データ取得は The Guardian Content API と The New York Times APIs のみを使用。
-- 取得するのはメタデータ（タイトル/URL/公開日/要旨/セクション等）。本文の保存はしない。
-- AIは多段エージェントで実施：Selector → Outliner → Writer → Polisher → Verifier → Publisher。
+- ニュースデータは NewsAPI.org の Top Headlines / Everything エンドポイントから取得する。
+- 取得対象は記事メタデータ（タイトル / URL / 公開日 / 要約 / 画像URL / 提供元など）。本文の保存・再配布は行わない。
+- AI 処理は多段エージェント構成：Selector → Outliner → Writer → Polisher → Verifier → Publisher。
+- データベースは Supabase（PostgreSQL）を利用し、取得済みソース・生成トピック・下書き記事を永続化する。
 
 ### 2. 技術スタック
-- Web: Next.js 15 (App Router, MDX, ISR), TypeScript, Tailwind, shadcn/ui
-- 自動処理: Node.js (TS) スクリプト + GitHub Actions（cron）
-- データ: リポ内ファイル（/data, /content, /meta）→ 将来DB化可能
-- AI: OpenAI/Anthropic（ハイブリッド可）
-- ホスティング: Vercel（ISRで即時反映）
+- Web: Next.js 15 (App Router, MDX, ISR), TypeScript, Tailwind CSS, shadcn/ui
+- 自動処理: Node.js (TS) スクリプト + GitHub Actions（cron 実行）
+- データ: Supabase（本番） / リポジトリ内ファイル（開発用サンプル）
+- AI: OpenAI API / Anthropic Claude API（切り替え可能）
+- ホスティング: Vercel（ISR で即時反映）
 
 ### 3. ディレクトリ構成（シンプル版）
 ```
-news-to-blog/
+world-news-reader/
 ├── app/                         # Next.js App Router
-├── components/                  # UIコンポーネント
-├── lib/                         # 共通ユーティリティ（SEO 等は lib/seo）
+├── components/                  # UI コンポーネント
 ├── content/
 │   ├── drafts/
 │   └── published/
-├── domain/                      # API固有のドメイン集約
-│   ├── guardian.ts              # Guardianアダプタと型
-│   ├── nyt.ts                   # NYTアダプタと型
-│   └── types.ts                 # 正規化型（SourceItem/Topic/Article等）
-├── scripts/                     # 自動処理（Cron実行対象）
-│   ├── fetch_guardian.ts
-│   ├── fetch_nyt.ts
+├── docs/
+├── domain/
+│   ├── newsapi.ts               # NewsAPI アダプタと型
+│   └── types.ts                 # 正規化型（SourceItem / Topic / Article 等）
+├── lib/
+│   ├── api/newsapi-client.ts    # NewsAPI HTTP クライアント
+│   ├── database-utils.ts
+│   ├── http-client.ts
+│   └── ...
+├── scripts/
+│   ├── fetch-newsapi.ts
 │   ├── rank_topics.ts
 │   ├── build_outline.ts
 │   ├── write_post.ts
@@ -45,41 +47,38 @@ news-to-blog/
 │   ├── verify_post.ts
 │   ├── publish_local.ts
 │   └── pipeline.ts
-├── prompts/
-│   └── templates/               # news.md, health.md, product.md, trend.md, glossary.md
+├── supabase/
+│   └── migrations/
 ├── data/
-│   ├── sources.jsonl
-│   └── queue.csv
+│   └── samples/
 ├── meta/
 │   └── issues.json
-├── docs/
-├── public/
-├── styles/
-├── next.config.mjs
-└── .github/workflows/scheduled-intake.yml
+└── ...
 ```
 
 ### 4. データモデル（ドメイン契約）
-以下は正規化済みのドメイン契約。provider 差異は domain 層で吸収する。
+NewsAPI のレスポンスを正規化したドメイン契約。provider 差異は domain 層で吸収する。
 
 ```
-type Provider = 'guardian' | 'nyt'
+type Provider = 'newsapi';
 
 type SourceItem = {
-  provider: Provider;            // 供給元
-  providerId: string;            // 供給元の安定識別子（Guardian: id / NYT: uri など）
-  url: string;                   // 記事URL
+  provider: Provider;            // 供給元（固定値: newsapi）
+  providerId: string;            // 安定識別子（URL を利用）
+  url: string;                   // 記事 URL
   title: string;                 // 見出し
-  abstract?: string;             // 要旨（保存方針に留意）
+  abstract?: string;             // 要約（description または content）
   publishedAt: string;           // ISO8601
-  section?: string;              // 例: Technology / World news
-  subsection?: string;           // NYTで利用
-  byline?: string;               // 署名
-  tags?: string[];               // キーワード/ファセット
-  type?: string;                 // 記事種別（analysis/opinion等）
-  wordCount?: number;            // 語数
+  section?: string;              // source.name など
+  subsection?: string;           // 将来の拡張用（NewsAPI では未使用）
+  byline?: string;               // 著者名
+  tags?: string[];               // ソース名や著者名などから推定
+  type?: string;                 // 取得元の分類（未使用）
+  wordCount?: number;            // NewsAPI では提供されない（未使用）
   image?: { url: string; caption?: string; credit?: string };
-  sourceName: 'The Guardian' | 'The New York Times';
+  body?: string;                 // HTML 本文（未使用）
+  bodyText?: string;             // 要約テキスト
+  sourceName: 'NewsAPI';         // 表示用媒体名
 }
 
 type Topic = {
@@ -90,22 +89,24 @@ type Topic = {
   publishedAt: string;           // ISO8601
   abstract?: string;
   section?: string;
+  subsection?: string;
   score: number;                 // 選定スコア
   status: 'NEW'|'QUEUED'|'REJECTED'|'OUTLINED'|'DRAFTED'|'VERIFIED'|'PUBLISHED';
-  genre: string;                 // news | health | product | trend | glossary | ...
-  canonicalKey: string;          // host + ':' + normalizedTitle
+  genre: 'news'|'health'|'product'|'trend'|'glossary'|'technology'|'lifestyle'|'culture'|'business'|'science';
+  canonicalKey: string;          // host + ':' + normalizedTitle 等で生成
   related?: string[];
 }
 
 type Article = {
   id: string;                    // slug
-  topicId: string;
+  topicId?: string;
   title: string;
   summary: string[];
   bodyMdx: string;
   category: string;
   tags: string[];
   sources: { name: string; url: string; date?: string }[];
+  imageUrl?: string;
   createdAt: string;
   updatedAt: string;
   publishedAt?: string;
@@ -114,29 +115,29 @@ type Article = {
 ```
 
 補足:
-- 正規化の詳細（フィールドの原典）は docs/api-guardian.md / docs/api-nyt.md を参照。
-- 画像URLの権利/利用条件に留意（相対URLの前置等は domain 層で処理）。
+- 正規化ロジックは `domain/newsapi.ts` を参照。
+- 画像の利用条件・著作権に注意。`urlToImage` が空の場合は画像なしとして扱う。
 
 ### 5. パイプライン（MVP）
-1) fetch_guardian.ts: Guardian API → 正規化 `SourceItem` を追記（data/sources.jsonl）  
-2) fetch_nyt.ts: NYT API → 正規化 `SourceItem` を追記（data/sources.jsonl）  
-3) rank_topics.ts: 重複除去（canonicalKey/ID/URL）＋スコアリング → data/queue.csv  
-4) build_outline.ts: ジャンルごとにテンプレ選択 → アウトラインJSON  
-5) write_post.ts: MDXドラフト生成 → /content/drafts  
-6) polish_post.ts: 日本語自然化 → 更新  
-7) verify_post.ts: 出典整合・誇大表現チェック → meta/issues.json  
-8) publish_local.ts: 承認済み記事を /content/published へ移動＋ISR再生成
+1. `fetch-newsapi.ts`: NewsAPI → 正規化 `SourceItem` → Supabase `sources` テーブルへ upsert / 開発時は JSON 保存  
+2. `rank_topics.ts`: 重複除去（canonicalKey / URL）＋スコアリング → `topics` テーブル / `data/queue.csv`  
+3. `build_outline.ts`: ジャンルごとにテンプレ選択 → アウトライン JSON 生成  
+4. `write_post.ts`: MDX ドラフト生成 → `/content/drafts`  
+5. `polish_post.ts`: 日本語自然化 → ドラフト更新  
+6. `verify_post.ts`: 出典整合・事実確認 → `meta/issues.json`  
+7. `publish_local.ts`: 承認済み記事を `/content/published` へ移動し ISR を再生成
 
-レート/再試行:
-- 429/5xx は指数バックオフ。日次クォータに配慮し、取得ウィンドウ/ページサイズを最適化。
+レート / 再試行:
+- NewsAPI の無料枠基準: 1 req/sec、100 req/day。429/5xx は指数バックオフ＋最大リトライ 3 回。
+- 多量取得時は `everything` エンドポイントで日付を分割し、クォータを超えないよう調整する。
 
-### 6. AIエージェント
-- Selector: 題材採否とジャンル付与  
-- Outliner: 構成案生成（柔軟テンプレ）  
-- Writer: MDXドラフト生成（出典ブロック含む）  
-- Polisher: 日本語自然化・可読性チェック  
+### 6. AI エージェント
+- Selector: `sources` から topics 候補を選定しジャンル付与  
+- Outliner: Topics ベースのアウトライン生成  
+- Writer: MDX ドラフト生成（出典ブロック含む）  
+- Polisher: 日本語校正・可読性調整  
 - Verifier: 出典整合・誇大表現チェック  
-- Publisher: 公開処理（非AI）  
+- Publisher: 公開処理（手動 or 自動）
 
 ### 7. GitHub Actions（例）
 ```
@@ -154,32 +155,23 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
       - name: Run pipeline
-        run: node --loader tsx scripts/pipeline.ts
+        run: pnpm tsx scripts/pipeline.ts
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OPENAI_API_KEY:    ${{ secrets.OPENAI_API_KEY }}
-          GUARDIAN_API_KEY:  ${{ secrets.GUARDIAN_API_KEY }}
-          NYT_API_KEY:       ${{ secrets.NYT_API_KEY }}
-          SITE_URL:          ${{ secrets.SITE_URL }}
-      - name: Revalidate
-        run: curl -fsSL -X POST "$SITE_URL/api/revalidate"
+          NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 ```
 
-### 8. 環境変数 (.env.example)
-```
-ANTHROPIC_API_KEY=
-OPENAI_API_KEY=
-GUARDIAN_API_KEY=
-NYT_API_KEY=
-SITE_URL=https://your-app.vercel.app
-TZ=Asia/Tokyo
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-```
+パイプライン実行後は Supabase / ISR をウォームアップし、失敗時は通知（Slack / Email）を送る。
 
-### 9. ガバナンス
-- 出典明記必須（媒体名・記事タイトル・URL・日付）。
-- 本文の直接転載禁止。必ずAIによる要約/再構成に留める。
-- 医療・金融テーマは注意文を付加。
+### 8. 品質ゲート
+- `pnpm lint` と `pnpm typecheck` を CI に組み込み、main へのマージ時に破綻がないことを保証。
+- ドラフト生成後は `verify_post.ts` の結果をもとに手動レビューを実施。
+- 生成記事には出典セクションを必須表示し、NewsAPI 経由の元記事 URL を利用者に示す。
+
+### 9. 今後の拡張メモ
+- 有料プランの Content API を導入する場合は `domain/newsapi.ts` に全文フィールドを追加し、AI の入力長を最適化。
+- 他ニュースプロバイダを追加する際は、`Provider` のユニオン型と domain アダプタを拡張し、Supabase 側の CHECK 制約を更新。
+- 取得頻度を上げる場合はレート制限とクォータを踏まえ、必要に応じてバッチを時間分散する。

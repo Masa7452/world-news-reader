@@ -9,7 +9,7 @@ export type Database = {
       sources: {
         Row: {
           id: string;
-          provider: 'guardian' | 'nyt';
+          provider: 'guardian' | 'newsapi';
           provider_id: string;
           url: string;
           title: string;
@@ -21,7 +21,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
-          provider: 'guardian' | 'nyt';
+          provider: 'guardian' | 'newsapi';
           provider_id: string;
           url: string;
           title: string;
@@ -33,7 +33,7 @@ export type Database = {
         };
         Update: {
           id?: string;
-          provider?: 'guardian' | 'nyt';
+          provider?: 'guardian' | 'newsapi';
           provider_id?: string;
           url?: string;
           title?: string;

@@ -19,22 +19,14 @@ export {
   type GuardianAsset,
 } from './guardian';
 
-// NYT APIアダプタのエクスポート
+// NewsAPIアダプタのエクスポート
 export {
-  normalizeNYTSearchItem,
-  normalizeNYTTopStory,
-  normalizeNYTNewswireItem,
-  normalizeNYTSearchResponse,
-  normalizeNYTTopStoriesResponse,
-  normalizeNYTNewswireResponse,
-  detectNYTGenre,
-  type NYTArticleSearchResponse,
-  type NYTSearchArticle,
-  type NYTTopStoriesResponse,
-  type NYTTopStory,
-  type NYTNewswireResponse,
-  type NYTNewswireArticle,
-  type NYTMultimedia,
-  type NYTTopStoryMultimedia,
-  type NYTKeyword,
-} from './nyt';
+  normalizeNewsApiArticle,
+  normalizeNewsApiResponse,
+  detectNewsApiGenre,
+  type NewsApiSource,
+  type NewsApiArticle,
+  type NewsApiArticlesResponse,
+  type NewsApiErrorResponse,
+  type NewsApiResponse,
+} from './newsapi';
