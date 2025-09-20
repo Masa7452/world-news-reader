@@ -1,268 +1,172 @@
-"use client";
-
+import React from "react";
 import Link from "next/link";
-import { useState } from "react";
 import { TopBar } from "@/components/TopBar";
 import { ArticleCard } from "@/components/article-card";
-import { mockArticles } from "@/data/mock/articles";
+import { getPublishedArticles, getCategoriesWithCount } from "@/lib/supabase-server";
+import { convertSupabaseArticle, CATEGORIES, type CategoryKey } from "@/types/article";
 import { 
-  Sparkles, Coffee, Leaf, Cpu, Heart, ShirtIcon, ChevronLeft, ChevronRight,
+  Sparkles, Coffee, Leaf, Cpu, Heart, ShirtIcon,
   Briefcase, Palette, Building2, Trophy, Music, Beaker, GraduationCap, Plane
 } from "lucide-react";
 
-const CategorySection = () => {
-  const [activeCategory, setActiveCategory] = useState("環境");
-  
-  // 全カテゴリーの定義（実際のカテゴリーマッピングと一致）
-  const allCategories = [
-    { name: "環境", icon: Leaf, colorClass: "tag-green" },
-    { name: "テクノロジー", icon: Cpu, colorClass: "tag-blue" },
-    { name: "ライフスタイル", icon: ShirtIcon, colorClass: "tag-purple" },
-    { name: "ヘルスケア", icon: Heart, colorClass: "tag-red" },
-    { name: "ビジネス", icon: Briefcase, colorClass: "tag-indigo" },
-    { name: "カルチャー", icon: Palette, colorClass: "tag-pink" },
-    { name: "政治", icon: Building2, colorClass: "tag-rose" },
-    { name: "スポーツ", icon: Trophy, colorClass: "tag-orange" },
-    { name: "エンターテインメント", icon: Music, colorClass: "tag-fuchsia" },
-    { name: "科学", icon: Beaker, colorClass: "tag-cyan" },
-    { name: "教育", icon: GraduationCap, colorClass: "tag-amber" },
-    { name: "旅行", icon: Plane, colorClass: "tag-teal" }
-  ];
-
-  const categoryArticles = mockArticles.reduce((acc, article) => {
-    if (!acc[article.category]) {
-      acc[article.category] = [];
-    }
-    acc[article.category].push(article);
-    return acc;
-  }, {} as Record<string, typeof mockArticles>);
-
-  const scrollContainer = (direction: 'left' | 'right') => {
-    const container = document.getElementById('category-scroll-container');
-    if (container) {
-      const scrollAmount = 320;
-      if (direction === 'left') {
-        container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-      } else {
-        container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-      }
-    }
-  };
-
-  return (
-    <section className="py-16" style={{ background: 'var(--bg-secondary)' }}>
-      <div className="container">
-        {/* Section Header */}
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-extrabold tracking-tight text-primary mb-4">
-            カテゴリー別記事
-          </h2>
-          <p className="text-lg text-muted max-w-2xl mx-auto">
-            興味のある分野から、じっくりと記事をお選びください
-          </p>
-        </div>
-
-        {/* Category Tabs */}
-        <div className="flex flex-wrap justify-center gap-2 mb-12 px-4">
-          {allCategories.map((category) => {
-            const Icon = category.icon;
-            const isActive = activeCategory === category.name;
-            return (
-              <button
-                key={category.name}
-                onClick={() => setActiveCategory(category.name)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full font-medium transition-all duration-300 ${
-                  isActive ? category.colorClass : ''
-                }`}
-                style={{
-                  background: isActive ? '' : 'var(--card)',
-                  color: isActive ? '' : 'var(--text)',
-                  border: `1.5px solid ${isActive ? '' : 'var(--divider)'}`,
-                  transform: isActive ? 'scale(1.05)' : 'scale(1)'
-                }}
-              >
-                <Icon className="h-4 w-4" />
-                <span className="text-sm whitespace-nowrap">{category.name}</span>
-                <span className="px-1.5 py-0.5 rounded-full text-xs font-bold"
-                  style={{
-                    background: isActive ? 'rgba(255,255,255,0.2)' : 'var(--divider)',
-                    color: isActive ? '' : 'var(--text-muted)'
-                  }}
-                >
-                  {categoryArticles[category.name]?.length || 0}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Articles Container with Horizontal Scroll */}
-        <div className="relative px-4">
-          {/* Left Arrow */}
-          <button
-            onClick={() => scrollContainer('left')}
-            className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full shadow-md transition-all hover:scale-110"
-            style={{
-              background: 'var(--card)',
-              border: '1px solid var(--divider)'
-            }}
-          >
-            <ChevronLeft className="h-5 w-5" style={{ color: 'var(--text)' }} />
-          </button>
-
-          {/* Right Arrow */}
-          <button
-            onClick={() => scrollContainer('right')}
-            className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full shadow-md transition-all hover:scale-110"
-            style={{
-              background: 'var(--card)',
-              border: '1px solid var(--divider)'
-            }}
-          >
-            <ChevronRight className="h-5 w-5" style={{ color: 'var(--text)' }} />
-          </button>
-
-          {/* Scrollable Articles */}
-          <div 
-            id="category-scroll-container"
-            className="flex gap-6 overflow-x-auto scroll-smooth pb-4 px-8"
-            style={{
-              scrollbarWidth: 'thin',
-              scrollbarColor: 'var(--divider) transparent',
-              animation: 'fadeIn 0.5s ease-out'
-            }}
-            key={activeCategory} // カテゴリー変更時に再レンダリング
-          >
-            {categoryArticles[activeCategory]?.map((article, index) => (
-              <div 
-                key={article.id} 
-                className="flex-shrink-0"
-                style={{ 
-                  width: '320px',
-                  animation: `slideIn ${0.3 + index * 0.1}s ease-out`
-                }}
-              >
-                <ArticleCard article={article} />
-              </div>
-            )) || (
-              <div className="w-full text-center py-12">
-                <p className="text-muted">このカテゴリーの記事はまだありません</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* View More Link */}
-        <div className="text-center mt-10">
-          <Link href={`/category/${activeCategory.toLowerCase()}`}>
-            <button 
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg transition-all font-medium"
-              style={{
-                background: 'var(--card)',
-                color: 'var(--text)',
-                border: '2px solid var(--divider)'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.2)';
-                e.currentTarget.style.borderColor = 'var(--text)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-                e.currentTarget.style.borderColor = 'var(--divider)';
-              }}
-            >
-              {activeCategory}カテゴリーの記事をすべて見る
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
+// カテゴリーアイコンのマッピング
+const categoryIcons: Record<CategoryKey, React.ComponentType<{className?: string}>> = {
+  environment: Leaf,
+  technology: Cpu,
+  lifestyle: ShirtIcon,
+  health: Heart,
+  business: Briefcase,
+  culture: Palette,
+  politics: Building2,
+  sports: Trophy,
+  entertainment: Music,
+  science: Beaker,
+  education: GraduationCap,
+  travel: Plane
 };
 
-export default function Home() {
+export default async function HomePage() {
+  // Supabaseから記事を取得
+  const supabaseArticles = await getPublishedArticles(50);
+  const articles = supabaseArticles.map(convertSupabaseArticle);
+  
+  // カテゴリー別の記事数を取得
+  const categoriesWithCount = await getCategoriesWithCount();
+  
+  // カテゴリー別に記事をグループ化（DBには英字キーで保存されている前提）
+  const articlesByCategory = articles.reduce((acc, article) => {
+    // DBのcategoryフィールドは'technology'のような英字キー
+    const category = article.category as CategoryKey;
+    // CATEGORIESに定義されているキーの場合のみグループ化
+    if (category in CATEGORIES) {
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      acc[category].push(article);
+    }
+    return acc;
+  }, {} as Record<CategoryKey, typeof articles>);
+
+  // 最新記事（上位6件）
+  const latestArticles = articles.slice(0, 6);
+  
+  // 人気記事（仮：ランダムに6件選択）
+  const popularArticles = [...articles].sort(() => Math.random() - 0.5).slice(0, 6);
+
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
       <TopBar />
-
-      <main>
-        {/* Hero Section */}
-        <section className="container py-16 md:py-24">
-          <div className="flex flex-col items-center text-center space-y-6">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border simple-tag">
-              <Sparkles className="h-4 w-4" />
-              <span className="text-sm font-medium">毎日更新</span>
-            </div>
-            
-            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-primary max-w-4xl">
-              <span className="block">世界の話題を</span>
-              <span className="flex items-center justify-center gap-3 flex-wrap">
-                <span>ゆっくり知ろう</span>
-                <Coffee className="h-12 w-12 md:h-16 md:w-16" style={{ color: 'var(--text)' }} />
-              </span>
-            </h1>
-            
-            <p className="text-lg md:text-xl text-muted max-w-2xl leading-relaxed">
-              The GuardianやThe New York Timesから厳選された記事を、
-              コーヒーブレイクのようなゆったりとした時間に。英語学習にもぴったりです。
-            </p>
+      
+      {/* Hero Section */}
+      <section className="hero-gradient py-20 px-4">
+        <div className="container mx-auto text-center">
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <Coffee className="w-10 h-10 text-amber-600" />
+            <Sparkles className="w-8 h-8 text-amber-500" />
           </div>
-        </section>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4" style={{ color: 'var(--fg)' }}>
+            世界の話題を
+            <span className="text-gradient bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">ゆっくり知ろう</span>
+          </h1>
+          <p className="text-lg md:text-xl mb-8 opacity-80" style={{ color: 'var(--fg-muted)' }}>
+            コーヒーブレイクに、世界の興味深いニュースを日本語でお届けします
+          </p>
+          
+          {/* カテゴリー統計 */}
+          <div className="flex flex-wrap justify-center gap-4 mt-8">
+            {categoriesWithCount.slice(0, 5).map((cat) => {
+              // DBのcategory値は英字キー（'technology'など）として保存されていると仮定
+              const categoryKey = cat.name as CategoryKey;
+              
+              // CATEGORIESに定義されていないカテゴリーはスキップ
+              if (!(categoryKey in CATEGORIES)) return null;
+              
+              const Icon = categoryIcons[categoryKey];
+              const categoryInfo = CATEGORIES[categoryKey];
+              
+              return (
+                <Link
+                  key={cat.name}
+                  href={`/tags/${categoryKey}`}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                >
+                  {Icon && React.createElement(Icon, { className: "w-4 h-4" })}
+                  <span>{categoryInfo.name}</span>
+                  <span className="text-sm opacity-60">({String(cat.count)})</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
-        {/* Articles Section */}
-        <section className="container py-16">
-          <div className="container">
-            <div className="mb-8">
-              <h2 className="text-3xl font-extrabold tracking-tight text-primary">最新記事</h2>
+      <div className="container mx-auto py-8 md:py-12 px-4 md:px-6">
+        {/* 最新記事 */}
+        {latestArticles.length > 0 && (
+          <section className="mb-12">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl md:text-3xl font-bold" style={{ color: 'var(--fg)' }}>
+                最新記事
+              </h2>
+              <Link 
+                href="/tags/all"
+                className="text-sm text-blue-600 hover:underline"
+              >
+                すべて見る →
+              </Link>
             </div>
-            
-            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {mockArticles.map((article) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {latestArticles.map((article) => (
                 <ArticleCard key={article.id} article={article} />
               ))}
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
-        {/* Category Section */}
-        <CategorySection />
+        {/* カテゴリー別セクション */}
+        {Object.entries(articlesByCategory).slice(0, 3).map(([category, categoryArticles]) => {
+          const categoryKey = category as CategoryKey;
+          const categoryInfo = CATEGORIES[categoryKey];
+          const Icon = categoryIcons[categoryKey];
+          
+          if (categoryArticles.length === 0) return null;
+          
+          return (
+            <section key={category} className="mb-12">
+              <div className="flex items-center gap-3 mb-6">
+                <Icon className="w-6 h-6" />
+                <h2 className="text-2xl md:text-3xl font-bold" style={{ color: 'var(--fg)' }}>
+                  {categoryInfo.name}
+                </h2>
+                <Link 
+                  href={`/tags/${category}`}
+                  className="ml-auto text-sm text-blue-600 hover:underline"
+                >
+                  もっと見る →
+                </Link>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {categoryArticles.slice(0, 3).map((article) => (
+                  <ArticleCard key={article.id} article={article} />
+                ))}
+              </div>
+            </section>
+          );
+        })}
 
-        {/* CTA Section */}
-        <section className="container py-16">
-          <div className="text-center">
-            <button 
-              className="px-8 py-4 border rounded-xl transition-all text-lg font-medium"
-              style={{ 
-                color: 'var(--text)',
-                borderColor: 'var(--divider)',
-                background: 'transparent'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--divider)';
-                e.currentTarget.style.borderColor = 'var(--text)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.borderColor = 'var(--divider)';
-              }}
-            >
-              もっと記事を見る
-            </button>
+        {/* 記事がない場合 */}
+        {articles.length === 0 && (
+          <div className="text-center py-20">
+            <Coffee className="w-16 h-16 mx-auto mb-4 opacity-50" />
+            <h2 className="text-2xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>
+              記事を準備中です
+            </h2>
+            <p style={{ color: 'var(--fg-muted)' }}>
+              まもなく新しい記事が公開されます。少々お待ちください。
+            </p>
           </div>
-        </section>
-      </main>
-
-      {/* Footer */}
-      <footer className="section">
-        <div className="container">
-          <div className="text-center text-muted text-sm">
-            <p>&copy; 2025 World News Reader. Made with ☕ for thoughtful readers.</p>
-          </div>
-        </div>
-      </footer>
+        )}
+      </div>
     </div>
   );
 }

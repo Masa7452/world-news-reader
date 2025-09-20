@@ -42,11 +42,13 @@ World News Readerは、TheNewsAPI（https://www.thenewsapi.com/）から取得�
 - ネイティブシェア機能
 
 ## 技術スタック
-- **フロントエンド**: Next.js (App Router)
-- **バックエンド**: Supabase
-- **スタイリング**: Tailwind CSS
+- **フロントエンド**: Next.js 15 (App Router)
+- **バックエンド**: Supabase (PostgreSQL)
+- **スタイリング**: Tailwind CSS + shadcn/ui
 - **AI/LLM**: Gemini API（Google AI Studio）
 - **外部API**: TheNewsAPI
+- **デプロイ**: Vercel
+- **CI/CD**: GitHub Actions
 
 ## プロジェクト構造
 ```
@@ -79,6 +81,23 @@ world-news-reader/
 ### 必要な環境
 - Node.js 18.0.0以上
 - pnpm（推奨）または npm
+
+### 環境変数の設定
+`.env`ファイルを作成し、以下の環境変数を設定してください：
+
+```bash
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key  # バックエンド処理用
+
+# API Keys
+NEWS_API_KEY=your_thenewsapi_key  # TheNewsAPI
+GEMINI_API_KEY=your_gemini_api_key  # Google AI Studio
+
+# オプション
+SLACK_WEBHOOK_URL=your_slack_webhook_url  # Slack通知用
+```
 
 ### インストール
 ```bash
@@ -141,16 +160,16 @@ pnpm tsx scripts/pipeline.ts --days 3 --query "AI"   # 3日間のAI関連記事�
 対処:
   - Supabaseダッシュボードで新しいキーを発行
   - GitHub Secrets の SUPABASE_SERVICE_ROLE_KEY を更新
-  - pnpm supabase status で接続確認
+  - RLSポリシーが適切に設定されているか確認
 ```
 
-#### 4. AI API エラー
+#### 4. Gemini API エラー
 ```
-原因: OpenAI/Anthropic APIの問題
+原因: Gemini APIの問題
 対処:
-  - APIキーの有効期限を確認
-  - 利用制限を確認
-  - 5分後に再実行
+  - Google AI Studio でAPIキーの有効性を確認
+  - 利用制限を確認（無料: 60 req/min）
+  - 指数バックオフで自動リトライされるため、通常は自動回復
 ```
 
 ### 監視とアラート
@@ -172,15 +191,24 @@ pnpm tsx scripts/pipeline.ts --days 3 --query "AI"   # 3日間のAI関連記事�
 - `ArticleTag`: カテゴリー別カラフルタグ
 - `MarkdownContent`: 記事本文表示
 
-### 現在の実装状況
-- ✅ TheNewsAPI連携による記事取得
-- ✅ AIによる記事生成パイプライン
-- ✅ モックデータでの記事表示
-- ✅ カテゴリー別記事フィルタリング
-- ✅ タグページ機能
-- ✅ 記事詳細ページ
-- ✅ レスポンシブデザイン
-- ✅ GitHub Actions による自動化
+### 実装済み機能
+- ✅ **バックエンド**
+  - TheNewsAPI連携による記事取得
+  - Gemini APIによるAI記事生成パイプライン（アウトライン→執筆→校正→検証）
+  - Supabaseによるデータ永続化
+  - GitHub Actions による定期実行（JST 06:00/12:00）
+  - Slack通知機能
+  - エラーハンドリング＆リトライ処理
+
+- ✅ **フロントエンド** 
+  - Server Componentsによる高速レンダリング
+  - Supabase連携による実データ表示
+  - カテゴリー別記事フィルタリング
+  - OGP画像の自動取得・表示
+  - 記事詳細ページ（マークダウン対応）
+  - レスポンシブデザイン（モバイル最適化）
+  - ダークモード対応
+  - SNSシェア機能
 
 ## 開発ガイドライン
 開発時のコーディング規約や詳細な実装ガイドラインについては、[CLAUDE.md](./CLAUDE.md)を参照してください。

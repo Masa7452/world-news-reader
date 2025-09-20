@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { ArticleTag } from "@/components/ArticleTag";
 import { CalendarDays, Clock, ArrowRight, ExternalLink, ImageIcon } from "lucide-react";
-import type { Article } from "@/data/mock/articles";
+import type { Article } from "@/types/article";
+import { CATEGORIES, type CategoryKey } from "@/types/article";
 
 interface ArticleCardProps {
   article: Article;
@@ -106,7 +107,7 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
           {/* Date moved to header for better hierarchy */}
           <div className="flex items-center gap-2 text-xs text-muted">
             <CalendarDays className="h-3 w-3" />
-            <time>{formatDate(article.publishedAt || article.createdAt)}</time>
+            <time>{formatDate(article.published_at || article.created_at)}</time>
           </div>
         </div>
 
