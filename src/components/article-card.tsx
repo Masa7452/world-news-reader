@@ -129,9 +129,7 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
                 <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
                   <ExternalLink className="h-3 w-3" />
                   <span className="font-medium">
-                    {article.sources[0].name === "The New York Times" ? "NYT" : 
-                     article.sources[0].name === "The Guardian" ? "Guardian" : 
-                     article.sources[0].name}
+                    {article.sources[0].name}
                   </span>
                 </div>
               )}

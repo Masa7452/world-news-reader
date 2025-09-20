@@ -139,8 +139,8 @@ EUは「グリーンディール2.0」を発表し、2030年までにカーボ�
     tags: ["気候変動", "サステナビリティ", "国際協力", "環境政策", "再生可能エネルギー", "カーボンニュートラル"],
     sources: [
       {
-        name: "The New York Times",
-        url: "https://www.nytimes.com/2025/09/07/us/politics/trump-congresss-power.html",
+        name: "CNN",
+        url: "https://www.cnn.com/2025/09/07/us/politics/trump-congresss-power.html",
         date: "2025-09-07"
       }
     ],
@@ -343,8 +343,8 @@ AI技術は医療分野に革命をもたらし、診断精度の向上、医療
     tags: ["AI", "医療", "ヘルスケア", "イノベーション", "個別化医療", "診断技術"],
     sources: [
       {
-        name: "The New York Times",
-        url: "https://www.nytimes.com/athletic/6606440/2025/09/06/sabalenka-anisimova-us-open-final-result-analysis/",
+        name: "CNN",
+        url: "https://www.cnn.com/athletic/6606440/2025/09/06/sabalenka-anisimova-us-open-final-result-analysis/",
         date: "2025-09-06"
       }
     ],
@@ -628,8 +628,8 @@ AI技術は医療分野に革命をもたらし、診断精度の向上、医療
     tags: ["ファッション", "サステナビリティ", "環境", "トレンド", "循環経済", "エシカル"],
     sources: [
       {
-        name: "The New York Times",
-        url: "https://www.nytimes.com/2025/09/07/business/france-government-collapse-economy.html",
+        name: "CNN",
+        url: "https://www.cnn.com/2025/09/07/business/france-government-collapse-economy.html",
         date: "2025-09-07"
       }
     ],
@@ -944,8 +944,8 @@ AI技術は医療分野に革命をもたらし、診断精度の向上、医療
     tags: ["宇宙", "イノベーション", "旅行", "科学", "商業宇宙開発", "未来技術"],
     sources: [
       {
-        name: "The New York Times",
-        url: "https://www.nytimes.com/article/lottery-jackpot-record-powerball-megamillions.html",
+        name: "CNN",
+        url: "https://www.cnn.com/article/lottery-jackpot-record-powerball-megamillions.html",
         date: "2024-12-15"
       }
     ],
@@ -1292,8 +1292,8 @@ AI技術は医療分野に革命をもたらし、診断精度の向上、医療
     tags: ["メンタルヘルス", "健康", "社会", "ウェルビーイング", "職場環境", "デジタルヘルス"],
     sources: [
       {
-        name: "The New York Times",
-        url: "https://www.nytimes.com/2025/09/07/world/europe/russian-strike-kyiv-ukraine.html",
+        name: "CNN",
+        url: "https://www.cnn.com/2025/09/07/world/europe/russian-strike-kyiv-ukraine.html",
         date: "2025-09-07"
       }
     ],
@@ -1317,8 +1317,8 @@ AI技術は医療分野に革命をもたらし、診断精度の向上、医療
     tags: ["アメリカ", "政治", "議会", "共和党"],
     sources: [
       {
-        name: "The New York Times",
-        url: "https://www.nytimes.com/2025/09/07/us/politics/trump-congresss-power.html",
+        name: "CNN",
+        url: "https://www.cnn.com/2025/09/07/us/politics/trump-congresss-power.html",
         date: "2025-09-07"
       }
     ],
@@ -1341,8 +1341,8 @@ AI技術は医療分野に革命をもたらし、診断精度の向上、医療
     tags: ["ウクライナ", "ロシア", "欧州", "国際政治"],
     sources: [
       {
-        name: "The New York Times",
-        url: "https://www.nytimes.com/2025/09/07/world/europe/russian-strike-kyiv-ukraine.html",
+        name: "CNN",
+        url: "https://www.cnn.com/2025/09/07/world/europe/russian-strike-kyiv-ukraine.html",
         date: "2025-09-07"
       }
     ],
