@@ -6,13 +6,14 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import type { Article } from '../src/domain/types';
 import dotenv from 'dotenv';
 import path from 'path';
-import fs from 'fs';
 
 // 環境変数を読み込み
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+
+// 記事生成の最大件数（デフォルト: 5）
+const TARGET_ARTICLE_COUNT = parseInt(process.env.TARGET_ARTICLE_COUNT || '5', 10);
 
 // Supabase Admin Client
 const supabaseAdmin = createClient(
@@ -26,149 +27,142 @@ const supabaseAdmin = createClient(
   }
 );
 
-// フロントマターの解析
-const parseFrontmatter = (content: string): { frontmatter: any; body: string } => {
-  const match = content.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
-  
-  if (!match) {
-    return { frontmatter: {}, body: content };
-  }
 
-  const frontmatterText = match[1];
-  const body = match[2];
-  
-  // 簡易YAML解析（production環境では適切なライブラリを使用）
-  const frontmatter: any = {};
-  frontmatterText.split('\n').forEach(line => {
-    const colonIndex = line.indexOf(':');
-    if (colonIndex > 0) {
-      const key = line.substring(0, colonIndex).trim();
-      const value = line.substring(colonIndex + 1).trim().replace(/^["']|["']$/g, '');
-      frontmatter[key] = value;
-    }
-  });
+// 記事メタデータ型定義（データベースのカラムに合わせる）
+interface ArticleMetadata {
+  slug: string;
+  topic_id: string | null;
+  title: string;
+  summary: string[];        // 3つの要点を配列で保存
+  summary_text: string;     // カード表示用の要約文
+  body_mdx: string;         // MDX形式の本文
+  category: string;         // カテゴリー
+  tags: string[];           // タグ
+  sources: {
+    name: string;
+    url: string;
+    date?: string;
+  }[];           // ソース情報
+  image_url: string | null; // 画像URL
+  status: string;           // ステータス
+  created_at: string;       // 作成日時
+  updated_at: string;       // 更新日時
+  published_at: string;     // 公開日時
+}
 
-  return { frontmatter, body };
-};
 
-// 記事メタデータの生成
-const generateArticleMetadata = (frontmatter: any, slug: string, filepath: string): Article => {
-  return {
-    id: slug,
-    slug,
-    topicId: undefined,
-    title: frontmatter.title || 'Untitled',
-    summary: frontmatter.description ? [frontmatter.description] : [],
-    bodyMdx: fs.readFileSync(filepath, 'utf-8'),
-    category: frontmatter.genre || 'news',
-    tags: frontmatter.tags ? JSON.parse(frontmatter.tags.replace(/'/g, '"')) : [],
-    sources: [{
-      name: frontmatter.sourceName || 'NewsAPI',
-      url: frontmatter.sourceUrl || '',
-      date: frontmatter.publishedAt
-    }],
-    imageUrl: frontmatter.image,
-    status: 'PUBLISHED',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    publishedAt: new Date().toISOString()
-  };
-};
+// 検証済みトピックの取得（Supabaseから直接取得）
+const getVerifiedTopics = async () => {
+  const { data: verifiedTopics, error } = await supabaseAdmin
+    .from('topics')
+    .select('id, title, url, published_at, abstract, genre')
+    .eq('status', 'VERIFIED')
+    .limit(TARGET_ARTICLE_COUNT);
 
-// 検証済みドラフトの取得
-const getVerifiedDrafts = async (): Promise<string[]> => {
-  const draftsDir = path.join(process.cwd(), 'content', 'drafts');
-  if (!fs.existsSync(draftsDir)) {
+  if (error) {
+    console.error('  ❌ 検証済みトピック取得エラー:', error.message);
     return [];
   }
-
-  // 検証済みのトピックに対応するドラフトを取得
-  const { data: verifiedTopics } = await supabaseAdmin
-    .from('topics')
-    .select('title')
-    .eq('status', 'VERIFIED');
 
   if (!verifiedTopics || verifiedTopics.length === 0) {
+    console.log('  ℹ️  VERIFIEDステータスのトピックが見つかりません');
     return [];
   }
 
-  const allDrafts = fs.readdirSync(draftsDir)
-    .filter(file => file.endsWith('.mdx'))
-    .map(file => path.join(draftsDir, file));
-  
-  // ファイル名とトピックタイトルのマッチング
-  return allDrafts.filter(filepath => {
-    const filename = path.basename(filepath, '.mdx');
-    return verifiedTopics.some(topic => 
-      topic.title.toLowerCase().includes(filename.replace(/-/g, ' '))
-    );
-  });
+  console.log(`  📋 ${verifiedTopics.length}件の検証済みトピックを検出`);
+  return verifiedTopics;
 };
 
 const publishPosts = async () => {
   console.log('記事公開を開始...');
 
-  const verifiedDrafts = await getVerifiedDrafts();
-  console.log(`${verifiedDrafts.length}件の検証済みドラフトを処理中...`);
+  const verifiedTopics = await getVerifiedTopics();
+  console.log(`${verifiedTopics.length}件の検証済みトピックを処理中... (最大${TARGET_ARTICLE_COUNT}件)`);
 
-  const publishedDir = path.join(process.cwd(), 'content', 'published');
-  if (!fs.existsSync(publishedDir)) {
-    fs.mkdirSync(publishedDir, { recursive: true });
+  if (verifiedTopics.length === 0) {
+    console.log('  ℹ️  公開できるトピックがありません');
+    return;
   }
 
-  const results = await verifiedDrafts.reduce(
-    async (prevPromise, draftPath) => {
-      const prev = await prevPromise;
-      
-      try {
-        const filename = path.basename(draftPath, '.mdx');
-        const content = fs.readFileSync(draftPath, 'utf-8');
-        const { frontmatter } = parseFrontmatter(content);
-        
-        // 公開ディレクトリにコピー
-        const publishedPath = path.join(publishedDir, `${filename}.mdx`);
-        fs.copyFileSync(draftPath, publishedPath);
-        
-        // Supabaseに記事メタデータを保存
-        const articleMetadata = generateArticleMetadata(frontmatter, filename, publishedPath);
-        
-        const { error } = await supabaseAdmin
-          .from('articles')
-          .upsert(articleMetadata, { onConflict: 'slug' });
+  let publishedCount = 0;
 
-        if (error) {
-          console.error(`記事保存エラー (${filename}):`, error);
-          return prev;
-        }
+  for (const topic of verifiedTopics) {
+    try {
+      // トピックIDから記事が既に存在するかチェック
+      const { data: existingArticle } = await supabaseAdmin
+        .from('articles')
+        .select('id')
+        .eq('topic_id', topic.id)
+        .single();
 
-        // 対応するトピックを公開済みに更新
-        const { data: topic } = await supabaseAdmin
-          .from('topics')
-          .select('id')
-          .ilike('title', `%${filename.replace(/-/g, ' ')}%`)
-          .single();
-
-        if (topic) {
-          await supabaseAdmin
-            .from('topics')
-            .update({ status: 'PUBLISHED' })
-            .eq('id', topic.id);
-        }
-
-        // ドラフトファイルを削除（オプション）
-        // fs.unlinkSync(draftPath);
-        
-        console.log(`📚 公開完了: ${filename}.mdx`);
-        return prev + 1;
-      } catch (error) {
-        console.error(`ファイル ${draftPath} の処理エラー:`, error);
-        return prev;
+      if (existingArticle) {
+        console.log(`  ⏭️  スキップ: トピック ${topic.id} は既に記事化済み`);
+        continue;
       }
-    },
-    Promise.resolve(0)
-  );
 
-  console.log(`✅ ${results}件の記事を公開しました`);
+      // URLからslugを生成
+      const slug = topic.url.split('/').pop()?.replace(/[^a-zA-Z0-9-]/g, '-') || `topic-${topic.id}`;
+      
+      console.log(`  📝 記事を公開: ${slug} (topic: ${topic.id})`);
+      
+      // 記事メタデータを生成（フロントマターの代わりにトピック情報を使用）
+      const articleMetadata: ArticleMetadata = {
+        slug,
+        topic_id: topic.id,
+        title: topic.title,
+        summary: [
+          '記事の重要なポイント1',
+          '記事の重要なポイント2', 
+          '記事の重要なポイント3'
+        ],
+        summary_text: topic.abstract || topic.title,
+        body_mdx: `# ${topic.title}\n\n${topic.abstract}\n\n[元記事を読む](${topic.url})`,
+        category: topic.genre || 'other',
+        tags: [topic.genre || 'news'],
+        sources: [{
+          name: 'NewsAPI',
+          url: topic.url,
+          date: topic.published_at
+        }],
+        image_url: null,
+        status: 'PUBLISHED',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        published_at: new Date().toISOString()
+      };
+      
+      // Supabaseに記事メタデータを保存
+      const { error } = await supabaseAdmin
+        .from('articles')
+        .insert(articleMetadata);
+
+      if (error) {
+        console.error(`  ❌ 記事保存エラー (${slug}):`, error.message);
+        continue;
+      }
+      console.log(`    💾 Supabaseに記事を保存`);
+
+      // トピックを公開済みに更新
+      const { error: topicError } = await supabaseAdmin
+        .from('topics')
+        .update({ status: 'PUBLISHED' })
+        .eq('id', topic.id);
+      
+      if (topicError) {
+        console.error(`  ❌ トピックステータス更新エラー:`, topicError.message);
+      } else {
+        console.log(`    ✅ トピックステータスを PUBLISHED に更新`);
+      }
+      
+      console.log(`  ✅ 公開完了: ${slug}`);
+      publishedCount++;
+      
+    } catch (error) {
+      console.error(`トピック ${topic.id} の処理エラー:`, error);
+    }
+  }
+
+  console.log(`✅ ${publishedCount}件の記事を公開しました`);
 };
 
 // 実行

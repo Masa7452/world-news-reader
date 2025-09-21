@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "dotenv -e .env.local -- next dev",
+    "dev:prod": "dotenv -e .env.prod -- next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -12,7 +13,13 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check:strict": "eslint . --max-warnings=0 && tsc --noEmit --pretty false"
+    "check:strict": "eslint . --max-warnings=0 && tsc --noEmit --pretty false",
+    "fetch:local": "dotenv -e .env.local -- pnpm exec tsx scripts/fetch-newsapi.ts",
+    "fetch:prod": "dotenv -e .env.prod -- pnpm exec tsx scripts/fetch-newsapi.ts",
+    "pipeline:local": "dotenv -e .env.local -- pnpm exec tsx scripts/pipeline.ts",
+    "pipeline:local:dry": "dotenv -e .env.local -- pnpm exec tsx scripts/pipeline.ts --dry-run",
+    "pipeline:prod": "dotenv -e .env.prod -- pnpm exec tsx scripts/pipeline.ts",
+    "pipeline:prod:dry": "dotenv -e .env.prod -- pnpm exec tsx scripts/pipeline.ts --dry-run"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -29,9 +36,11 @@
     "react-dom": "^18.3.1",
     "react-markdown": "^10.1.0",
     "rehype-highlight": "^7.0.2",
+    "remark-directive": "^4.0.0",
     "remark-gfm": "^4.0.1",
     "swr": "^2.3.6",
     "tailwind-variants": "^0.1.20",
+    "unist-util-visit": "^5.0.0",
     "world-news-reader": "link:"
   },
   "devDependencies": {
@@ -42,11 +51,13 @@
     "@types/node": "^22.5.4",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.5",
+    "@types/unist": "^3.0.3",
     "@typescript-eslint/eslint-plugin": "^8.0.1",
     "@typescript-eslint/parser": "^8.0.1",
     "autoprefixer": "^10.4.21",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dotenv-cli": "^7.4.2",
     "eslint": "^9.10.0",
     "eslint-config-next": "^15.5.2",
     "eslint-config-prettier": "^9.1.2",
@@ -61,6 +72,7 @@
     "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.19.1",
     "typescript": "^5.6.3",
+    "unified": "^11.0.5",
     "vitest": "^2.1.3"
   }
 }

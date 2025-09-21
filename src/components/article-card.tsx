@@ -114,7 +114,7 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
         {/* Content Section - Clean white background */}
         <div className="flex-1 p-6" style={{ background: 'var(--card)' }}>
           <p className="text-muted line-clamp-4 text-sm leading-relaxed">
-            {article.summary.join(" ")}
+            {article.summary_text || '記事の内容を読み込み中...'}
           </p>
         </div>
 

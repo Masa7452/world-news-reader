@@ -15,6 +15,9 @@ import fs from 'fs';
 // 環境変数を読み込み
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
+// 記事生成の最大件数（デフォルト: 5）
+const TARGET_ARTICLE_COUNT = parseInt(process.env.TARGET_ARTICLE_COUNT || '5', 10);
+
 // Supabase Admin Client
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,6 +49,14 @@ const getOutlineTemplate = (genre: Genre): string => {
 4. 今後の見通し
 各セクションは2-3の要点で構成してください。
 `,
+    science: `
+この科学記事について、以下の構成でアウトラインを作成してください：
+1. 研究・発見の概要
+2. 手法・プロセス
+3. 結果・意義
+4. 応用可能性
+各セクションは2-3の要点で構成してください。
+`,
     health: `
 この健康記事について、以下の構成でアウトラインを作成してください：
 1. 健康問題の概要
@@ -54,12 +65,20 @@ const getOutlineTemplate = (genre: Genre): string => {
 4. 予防・注意点
 各セクションは2-3の要点で構成してください。
 `,
-    science: `
-この科学記事について、以下の構成でアウトラインを作成してください：
-1. 研究・発見の概要
-2. 手法・プロセス
-3. 結果・意義
-4. 応用可能性
+    sports: `
+このスポーツ記事について、以下の構成でアウトラインを作成してください：
+1. 試合・イベントの概要
+2. 注目の選手・チーム
+3. 試合展開・結果
+4. 今後の展望
+各セクションは2-3の要点で構成してください。
+`,
+    entertainment: `
+このエンターテインメント記事について、以下の構成でアウトラインを作成してください：
+1. 作品・イベントの概要
+2. 見どころ・注目ポイント
+3. 評価・反響
+4. 関連情報
 各セクションは2-3の要点で構成してください。
 `,
     culture: `
@@ -78,46 +97,41 @@ const getOutlineTemplate = (genre: Genre): string => {
 4. 読者への応用アドバイス
 各セクションは2-3の要点で構成してください。
 `,
-    news: `
-このニュース記事について、以下の構成でアウトラインを作成してください：
-1. 事件・出来事の概要
+    politics: `
+この政治記事について、以下の構成でアウトラインを作成してください：
+1. 政治的出来事の概要
 2. 背景・経緯
-3. 関係者・影響
+3. 各方面の反応
+4. 今後の影響
+各セクションは2-3の要点で構成してください。
+`,
+    other: `
+この記事について、以下の構成でアウトラインを作成してください：
+1. 出来事・トピックの概要
+2. 背景・詳細
+3. 影響・意義
 4. 今後の展開
-各セクションは2-3の要点で構成してください。
-`,
-    product: `
-この製品記事について、以下の構成でアウトラインを作成してください：
-1. 製品の概要・特徴
-2. 利用方法・対象ユーザー
-3. 競合との比較
-4. 購入・利用の検討点
-各セクションは2-3の要点で構成してください。
-`,
-    trend: `
-このトレンド記事について、以下の構成でアウトラインを作成してください：
-1. トレンドの概要
-2. 背景・起因
-3. 現在の状況・影響
-4. 今後の予測
-各セクションは2-3の要点で構成してください。
-`,
-    glossary: `
-この用語解説記事について、以下の構成でアウトラインを作成してください：
-1. 用語の定義・基本概念
-2. 使用場面・文脈
-3. 関連用語・概念
-4. 実用的な活用方法
 各セクションは2-3の要点で構成してください。
 `
   };
 
-  return templates[genre] || templates.news;
+  return templates[genre] || templates.other;
 };
 
+// データベースから取得されるトピック型
+interface DbTopic {
+  id: string;
+  title: string;
+  abstract?: string;
+  genre: Genre;
+  section?: string;
+}
+
 // Gemini APIでアウトライン生成
-const generateOutlineForTopic = async (topic: any): Promise<TopicOutline> => {
-  const template = getOutlineTemplate(topic.genre);
+const generateOutlineForTopic = async (topic: DbTopic): Promise<{outline: TopicOutline, genre: string}> => {
+  // 初期のジャンル推定（フォールバック用）
+  const initialGenre = topic.genre || 'other';
+  const template = getOutlineTemplate(initialGenre);
   
   try {
     console.log(`  📝 ${topic.title} のアウトライン生成中...`);
@@ -126,29 +140,73 @@ const generateOutlineForTopic = async (topic: any): Promise<TopicOutline> => {
     const outlineJson = await generateOutline(
       topic.title,
       topic.abstract || '',
-      topic.genre,
+      initialGenre,
       template
     );
     
     // JSONをパース
-    const outlineData = JSON.parse(outlineJson);
+    let outlineData;
+    try {
+      outlineData = JSON.parse(outlineJson);
+    } catch (parseError) {
+      console.error(`  ❌ JSONパースエラー: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+      console.error(`  受信したJSON: ${outlineJson.substring(0, 200)}...`);
+      throw new Error(`Failed to parse outline JSON: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+    }
     const sections = Array.isArray(outlineData.sections) ? outlineData.sections : [];
+    
+    // Gemini APIが返したジャンルを使用（なければ初期ジャンルを使用）
+    const selectedGenre = outlineData.genre || initialGenre;
+    
+    // 有効なジャンルかチェック
+    const validGenres = [
+      'technology', 'business', 'science', 'health',
+      'sports', 'entertainment', 'culture', 'lifestyle',
+      'politics', 'other'
+    ];
+    const finalGenre = validGenres.includes(selectedGenre) ? selectedGenre : 'other';
+    
+    // Gemini APIが生成したsummaryを使用（必ず3つの要点が含まれる）
+    let summaryPoints: string[] = [];
+    
+    if (Array.isArray(outlineData.summary) && outlineData.summary.length === 3) {
+      // Gemini APIが正しく3つの要点を生成した場合
+      summaryPoints = outlineData.summary.map(point => {
+        // 念のため50文字制限をチェック
+        if (point.length > 50) {
+          const sentences = point.split(/[。！]/);
+          point = sentences[0] + (sentences[0].endsWith('。') ? '' : '。');
+          if (point.length > 50) {
+            point = point.substring(0, 47) + '...';
+          }
+        }
+        return point;
+      });
+    } else {
+      // フォールバック: Gemini APIがsummaryを生成しなかった場合（エラー時）
+      console.warn('  ⚠️  Gemini APIがsummaryを生成しませんでした。フォールバックを使用');
+      summaryPoints = [
+        `${topic.title.substring(0, 20)}の重要な変化`,
+        `業界への影響と今後の展開`,
+        `関係者の反応と市場の動向`
+      ];
+    }
     
     // TopicOutline型に変換
     const outline: TopicOutline = {
       id: `outline-${topic.id}`,
       topicId: topic.id,
       title: topic.title,
-      summary: sections.slice(0, 3).map((s: any) => (s.points?.[0] as string | undefined) || ''),
-      sections: sections.map((section: any) => ({
-        heading: section.title,
+      summary: summaryPoints.slice(0, 3), // 確実に3つのポイント
+      sections: sections.map((section: { title?: string; heading?: string; points?: string[] }) => ({
+        heading: section.title || section.heading,
         points: Array.isArray(section.points) ? section.points : []
       })),
-      tags: [topic.genre, topic.section || 'news'],
+      tags: [finalGenre, topic.section || 'news'],
       createdAt: new Date().toISOString()
     };
     
-    return outline;
+    return { outline, genre: finalGenre };
   } catch (error) {
     console.error(`  ❌ アウトライン生成エラー: ${error instanceof Error ? error.message : String(error)}`);
     
@@ -176,11 +234,11 @@ const generateOutlineForTopic = async (topic: any): Promise<TopicOutline> => {
           points: ['今後の展望', '関連情報']
         }
       ],
-      tags: [topic.genre, topic.section || 'news'],
+      tags: [initialGenre, topic.section || 'news'],
       createdAt: new Date().toISOString()
     };
     
-    return mockOutline;
+    return { outline: mockOutline, genre: initialGenre };
   }
 };
 
@@ -200,6 +258,7 @@ const saveOutlineToFile = async (outline: TopicOutline): Promise<void> => {
 
 const buildOutlines = async () => {
   console.log('アウトライン生成を開始...');
+  console.log(`  🎯 最大処理数: ${TARGET_ARTICLE_COUNT}件`);
 
   // 処理対象のトピックを取得
   const { data: topics, error } = await supabaseAdmin
@@ -207,14 +266,14 @@ const buildOutlines = async () => {
     .select('*')
     .eq('status', 'NEW')
     .order('score', { ascending: false })
-    .limit(10);
+    .limit(TARGET_ARTICLE_COUNT);
 
   if (error) {
-    console.error('トピック取得エラー:', error);
+    console.error('  ❌ トピック取得エラー:', error.message);
     return;
   }
 
-  console.log(`${topics.length}件のトピックを処理中...`);
+  console.log(`  📋 ${topics.length}件のトピックを処理中...`);
 
   // アウトライン生成とファイル保存
   const outlines = await topics.reduce(
@@ -222,13 +281,16 @@ const buildOutlines = async () => {
       const prev = await prevPromise;
       
       try {
-        const outline = await generateOutlineForTopic(topic);
+        const { outline, genre } = await generateOutlineForTopic(topic);
         await saveOutlineToFile(outline);
         
-        // トピックステータスを更新
+        // トピックステータスとジャンルを更新
         await supabaseAdmin
           .from('topics')
-          .update({ status: 'OUTLINED' })
+          .update({ 
+            status: 'OUTLINED',
+            genre: genre  // Gemini APIが選択したジャンルで更新
+          })
           .eq('id', topic.id);
 
         return [...prev, outline];

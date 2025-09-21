@@ -9,10 +9,12 @@ import { createClient } from '@supabase/supabase-js';
 import { polishArticle } from '../lib/gemini-client';
 import dotenv from 'dotenv';
 import path from 'path';
-import fs from 'fs';
 
 // 環境変数を読み込み
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+
+// 記事生成の最大件数（デフォルト: 5）
+const TARGET_ARTICLE_COUNT = parseInt(process.env.TARGET_ARTICLE_COUNT || '5', 10);
 
 // Supabase Admin Client
 const supabaseAdmin = createClient(
@@ -59,64 +61,61 @@ const polishContent = async (content: string): Promise<string> => {
   }
 };
 
-// ドラフトファイルの取得
-const getDraftFiles = async (): Promise<string[]> => {
-  const draftsDir = path.join(process.cwd(), 'content', 'drafts');
-  if (!fs.existsSync(draftsDir)) {
+// DRAFTステータスの記事を取得
+const getDraftArticles = async () => {
+  const { data: draftArticles, error } = await supabaseAdmin
+    .from('articles')
+    .select('id, slug, body_mdx, topic_id')
+    .eq('status', 'DRAFT')
+    .limit(TARGET_ARTICLE_COUNT);
+
+  if (error) {
+    console.error('  ❌ ドラフト記事取得エラー:', error.message);
     return [];
   }
 
-  return fs.readdirSync(draftsDir)
-    .filter(file => file.endsWith('.mdx'))
-    .map(file => path.join(draftsDir, file));
+  return draftArticles || [];
 };
 
-// ドラフトのslugからトピックIDを取得
-const getTopicIdFromSlug = async (slug: string): Promise<string | null> => {
-  const { data: topic } = await supabaseAdmin
-    .from('topics')
-    .select('id')
-    .eq('status', 'DRAFTED')
-    .ilike('title', `%${slug.replace(/-/g, ' ')}%`)
-    .single();
-
-  return topic?.id || null;
-};
 
 const polishPosts = async () => {
   console.log('記事校正を開始...');
+  console.log(`  🎯 最大処理数: ${TARGET_ARTICLE_COUNT}件`);
 
-  const draftFiles = await getDraftFiles();
-  console.log(`${draftFiles.length}件のドラフトを処理中...`);
+  const draftArticles = await getDraftArticles();
+  console.log(`  📋 ${draftArticles.length}件のドラフト記事を処理中...`);
 
-  const results = await draftFiles.reduce(
-    async (prevPromise, filepath) => {
+  const results = await draftArticles.reduce(
+    async (prevPromise, article) => {
       const prev = await prevPromise;
       
       try {
-        // ファイル内容を読み込み
-        const content = fs.readFileSync(filepath, 'utf-8');
-        const filename = path.basename(filepath, '.mdx');
+        console.log(`✨ 校正開始: ${article.slug}`);
         
-        // 校正処理
-        const polishedContent = await polishContent(content);
+        // MDX記事の校正処理
+        const polishedContent = await polishContent(article.body_mdx);
         
-        // ファイルを更新
-        fs.writeFileSync(filepath, polishedContent, 'utf-8');
-        console.log(`✨ 校正完了: ${filename}.mdx`);
-        
-        // 対応するトピックのステータスを更新
-        const topicId = await getTopicIdFromSlug(filename);
-        if (topicId) {
-          await supabaseAdmin
-            .from('topics')
-            .update({ status: 'VERIFIED' })
-            .eq('id', topicId);
+        // データベースの記事を更新
+        const { error } = await supabaseAdmin
+          .from('articles')
+          .update({ 
+            body_mdx: polishedContent,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', article.id);
+          
+        if (error) {
+          console.error(`  ❌ 記事更新エラー (${article.slug}):`, error.message);
+          return prev;
         }
+        
+        console.log(`✨ 校正完了: ${article.slug}`);
+        
+        // 注: トピックのVERIFIEDステータス更新はverify-post.tsの責務のため、ここでは行わない
 
         return prev + 1;
       } catch (error) {
-        console.error(`ファイル ${filepath} の処理エラー:`, error);
+        console.error(`記事 ${article.slug} の処理エラー:`, error);
         return prev;
       }
     },

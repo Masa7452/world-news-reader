@@ -15,13 +15,14 @@ export interface ArticleSource {
   date?: string;
 }
 
-// フロントエンドで使用する記事型
+// フロントエンドで使用する記事型（Supabaseのスキーマに合わせてsnake_case）
 export interface Article {
   id: string;
   slug: string;
   topic_id: string | null;
   title: string;
   summary: string[];
+  summary_text?: string;  // カード表示用の要約文
   body_mdx: string;
   category: string;
   tags: string[];
@@ -54,18 +55,19 @@ export const convertSupabaseArticle = (article: SupabaseArticle): Article => {
 
 // カテゴリー定義
 export const CATEGORIES = {
-  environment: { name: '環境', color: 'tag-green' },
-  technology: { name: 'テクノロジー', color: 'tag-blue' },
-  lifestyle: { name: 'ライフスタイル', color: 'tag-purple' },
-  health: { name: 'ヘルスケア', color: 'tag-red' },
-  business: { name: 'ビジネス', color: 'tag-indigo' },
-  culture: { name: 'カルチャー', color: 'tag-pink' },
-  politics: { name: '政治', color: 'tag-rose' },
-  sports: { name: 'スポーツ', color: 'tag-orange' },
-  entertainment: { name: 'エンターテインメント', color: 'tag-fuchsia' },
-  science: { name: '科学', color: 'tag-cyan' },
-  education: { name: '教育', color: 'tag-amber' },
-  travel: { name: '旅行', color: 'tag-teal' }
+  environment: { name: '環境', color: 'tag-green', description: '環境問題や持続可能性に関する記事' },
+  technology: { name: 'テクノロジー', color: 'tag-blue', description: 'IT、AI、ソフトウェア、デジタル技術に関する記事' },
+  lifestyle: { name: 'ライフスタイル', color: 'tag-purple', description: 'ファッション、食、旅行、住まいに関する記事' },
+  health: { name: 'ヘルスケア', color: 'tag-red', description: '医療、健康、ウェルネス、フィットネスに関する記事' },
+  business: { name: 'ビジネス', color: 'tag-indigo', description: '経済、金融、投資、企業、市場に関する記事' },
+  culture: { name: 'カルチャー', color: 'tag-pink', description: 'アート、芸術、文学、歴史に関する記事' },
+  politics: { name: '政治', color: 'tag-rose', description: '政府、政策、選挙、国際関係に関する記事' },
+  sports: { name: 'スポーツ', color: 'tag-orange', description: '競技、選手、試合、大会に関する記事' },
+  entertainment: { name: 'エンターテインメント', color: 'tag-fuchsia', description: '映画、音楽、ゲーム、芸能に関する記事' },
+  science: { name: '科学', color: 'tag-cyan', description: '研究、宇宙、生物学、物理学、化学に関する記事' },
+  education: { name: '教育', color: 'tag-amber', description: '学習、教育機関、教育政策に関する記事' },
+  travel: { name: '旅行', color: 'tag-teal', description: '観光、旅行先、文化体験に関する記事' },
+  other: { name: 'その他', color: 'tag-gray', description: '上記以外のカテゴリーに属する記事' }
 } as const;
 
 export type CategoryKey = keyof typeof CATEGORIES;

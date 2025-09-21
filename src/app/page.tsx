@@ -1,12 +1,14 @@
 import React from "react";
 import Link from "next/link";
 import { TopBar } from "@/components/TopBar";
+import { Footer } from "@/components/layout/footer";
 import { ArticleCard } from "@/components/article-card";
 import { getPublishedArticles, getCategoriesWithCount } from "@/lib/supabase-server";
 import { convertSupabaseArticle, CATEGORIES, type CategoryKey } from "@/types/article";
 import { 
   Sparkles, Coffee, Leaf, Cpu, Heart, ShirtIcon,
-  Briefcase, Palette, Building2, Trophy, Music, Beaker, GraduationCap, Plane
+  Briefcase, Palette, Building2, Trophy, Music, Beaker, GraduationCap, Plane,
+  LayoutGrid
 } from "lucide-react";
 
 // カテゴリーアイコンのマッピング
@@ -22,7 +24,8 @@ const categoryIcons: Record<CategoryKey, React.ComponentType<{className?: string
   entertainment: Music,
   science: Beaker,
   education: GraduationCap,
-  travel: Plane
+  travel: Plane,
+  other: LayoutGrid  // その他カテゴリー用のアイコン
 };
 
 export default async function HomePage() {
@@ -35,15 +38,19 @@ export default async function HomePage() {
   
   // カテゴリー別に記事をグループ化（DBには英字キーで保存されている前提）
   const articlesByCategory = articles.reduce((acc, article) => {
-    // DBのcategoryフィールドは'technology'のような英字キー
-    const category = article.category as CategoryKey;
-    // CATEGORIESに定義されているキーの場合のみグループ化
-    if (category in CATEGORIES) {
-      if (!acc[category]) {
-        acc[category] = [];
-      }
-      acc[category].push(article);
+    // カテゴリーの安全な取得
+    const category = article.category;
+    let categoryKey: CategoryKey = 'other'; // デフォルトは「その他」
+    
+    if (category && category in CATEGORIES) {
+      categoryKey = category as CategoryKey;
     }
+    
+    if (!acc[categoryKey]) {
+      acc[categoryKey] = [];
+    }
+    acc[categoryKey].push(article);
+    
     return acc;
   }, {} as Record<CategoryKey, typeof articles>);
 
@@ -58,7 +65,7 @@ export default async function HomePage() {
       <TopBar />
       
       {/* Hero Section */}
-      <section className="hero-gradient py-20 px-4">
+      <section className="hero-gradient py-16 px-4">
         <div className="container mx-auto text-center">
           <div className="flex items-center justify-center gap-3 mb-6">
             <Coffee className="w-10 h-10 text-amber-600" />
@@ -68,39 +75,13 @@ export default async function HomePage() {
             世界の話題を
             <span className="text-gradient bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">ゆっくり知ろう</span>
           </h1>
-          <p className="text-lg md:text-xl mb-8 opacity-80" style={{ color: 'var(--fg-muted)' }}>
-            コーヒーブレイクに、世界の興味深いニュースを日本語でお届けします
+          <p className="text-lg md:text-xl mb-6 opacity-80" style={{ color: 'var(--fg-muted)' }}>
+            コーヒーブレイクのような穏やかな時間に、世界のニュースを丁寧に読み解く☕️<br />英語学習にもぴったりです
           </p>
-          
-          {/* カテゴリー統計 */}
-          <div className="flex flex-wrap justify-center gap-4 mt-8">
-            {categoriesWithCount.slice(0, 5).map((cat) => {
-              // DBのcategory値は英字キー（'technology'など）として保存されていると仮定
-              const categoryKey = cat.name as CategoryKey;
-              
-              // CATEGORIESに定義されていないカテゴリーはスキップ
-              if (!(categoryKey in CATEGORIES)) return null;
-              
-              const Icon = categoryIcons[categoryKey];
-              const categoryInfo = CATEGORIES[categoryKey];
-              
-              return (
-                <Link
-                  key={cat.name}
-                  href={`/tags/${categoryKey}`}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                >
-                  {Icon && React.createElement(Icon, { className: "w-4 h-4" })}
-                  <span>{categoryInfo.name}</span>
-                  <span className="text-sm opacity-60">({String(cat.count)})</span>
-                </Link>
-              );
-            })}
-          </div>
         </div>
       </section>
 
-      <div className="container mx-auto py-8 md:py-12 px-4 md:px-6">
+      <div className="container mx-auto py-6 md:py-8 px-4 md:px-6">
         {/* 最新記事 */}
         {latestArticles.length > 0 && (
           <section className="mb-12">
@@ -167,6 +148,47 @@ export default async function HomePage() {
           </div>
         )}
       </div>
+
+      {/* カテゴリータグセクション - フッターの上に配置 */}
+      <section className="py-12 bg-gray-50 dark:bg-gray-900">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--fg)' }}>
+              カテゴリー別に記事を探す
+            </h2>
+            <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
+              興味のあるトピックから記事を見つけてください
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-4">
+            {categoriesWithCount.map((cat) => {
+              // カテゴリーの安全な取得とフォールバック
+              const categoryKey = cat.name && cat.name in CATEGORIES 
+                ? cat.name as CategoryKey 
+                : null;
+              
+              if (!categoryKey) return null;
+              
+              const Icon = categoryIcons[categoryKey];
+              const categoryInfo = CATEGORIES[categoryKey];
+              
+              return (
+                <Link
+                  key={cat.name}
+                  href={`/tags/${categoryKey}`}
+                  className="flex items-center gap-2 px-4 py-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors shadow-sm"
+                >
+                  {Icon && React.createElement(Icon, { className: "w-5 h-5 text-gray-600 dark:text-gray-400" })}
+                  <span className="font-medium">{categoryInfo.name}</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">({String(cat.count)})</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <Footer />
     </div>
   );
 }

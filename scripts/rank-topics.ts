@@ -6,6 +6,9 @@ import path from 'path';
 // 環境変数を読み込み
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
+// 記事生成の最大件数（デフォルト: 5）
+const TARGET_ARTICLE_COUNT = parseInt(process.env.TARGET_ARTICLE_COUNT || '5', 10);
+
 // Supabase Admin Client
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,25 +23,31 @@ const supabaseAdmin = createClient(
 
 // ジャンル判定（TheNewsAPI対応）
 const detectGenre = (item: SourceItem): Genre => {
+  // 簡易的な初期ジャンル推定（後でGemini APIでより正確に分類される）
   const tags = (item.tags ?? []).map(tag => tag.toLowerCase());
-
-  if (tags.some(tag => ['health', 'wellness', 'medical'].includes(tag))) return 'health';
-  if (tags.some(tag => ['technology', 'tech', 'ai'].includes(tag))) return 'technology';
-  if (tags.some(tag => ['business', 'economy', 'finance'].includes(tag))) return 'business';
-  if (tags.some(tag => ['science', 'research', 'climate'].includes(tag))) return 'science';
-  if (tags.some(tag => ['culture', 'entertainment', 'arts'].includes(tag))) return 'culture';
-  if (tags.some(tag => ['lifestyle', 'travel', 'food', 'fashion'].includes(tag))) return 'lifestyle';
-
   const text = `${item.title} ${item.abstract ?? ''} ${item.bodyText ?? ''} ${item.section ?? ''}`.toLowerCase();
 
-  if (text.includes('health') || text.includes('medical')) return 'health';
-  if (text.includes('technology') || text.includes('ai') || text.includes('software')) return 'technology';
-  if (text.includes('lifestyle') || text.includes('wellness')) return 'lifestyle';
-  if (text.includes('culture') || text.includes('art') || text.includes('entertainment')) return 'culture';
-  if (text.includes('business') || text.includes('economy') || text.includes('finance')) return 'business';
-  if (text.includes('science') || text.includes('research') || text.includes('climate')) return 'science';
+  // タグベースの判定
+  if (tags.some(tag => tag.includes('tech') || tag.includes('ai') || tag.includes('software'))) return 'technology';
+  if (tags.some(tag => tag.includes('business') || tag.includes('economy') || tag.includes('finance'))) return 'business';
+  if (tags.some(tag => tag.includes('science') || tag.includes('research'))) return 'science';
+  if (tags.some(tag => tag.includes('health') || tag.includes('medical'))) return 'health';
+  if (tags.some(tag => tag.includes('sport'))) return 'sports';
+  if (tags.some(tag => tag.includes('entertainment') || tag.includes('movie') || tag.includes('music'))) return 'entertainment';
+  if (tags.some(tag => tag.includes('culture') || tag.includes('art'))) return 'culture';
+  if (tags.some(tag => tag.includes('lifestyle') || tag.includes('fashion') || tag.includes('food'))) return 'lifestyle';
+  if (tags.some(tag => tag.includes('politic') || tag.includes('government'))) return 'politics';
 
-  return 'news';
+  // テキストベースの判定（フォールバック）
+  if (text.includes('technology') || text.includes(' ai ') || text.includes('software')) return 'technology';
+  if (text.includes('business') || text.includes('economy')) return 'business';
+  if (text.includes('science') || text.includes('research')) return 'science';
+  if (text.includes('health') || text.includes('medical')) return 'health';
+  if (text.includes('sport')) return 'sports';
+  if (text.includes('entertainment') || text.includes('movie') || text.includes('music')) return 'entertainment';
+  if (text.includes('politic') || text.includes('government')) return 'politics';
+
+  return 'other';
 };
 
 // スコア計算（TheNewsAPI対応）
@@ -104,6 +113,7 @@ interface Topic {
 
 const rankTopics = async () => {
   console.log('トピックの選定を開始...');
+  console.log(`  🎯 最大生成記事数: ${TARGET_ARTICLE_COUNT}件`);
 
   // 未処理のソースを取得
   const { data: sources, error } = await supabaseAdmin
@@ -114,11 +124,11 @@ const rankTopics = async () => {
     .limit(100);
 
   if (error) {
-    console.error('ソース取得エラー:', error);
+    console.error('  ❌ ソース取得エラー:', error.message);
     return;
   }
 
-  console.log(`${sources.length}件のソースを処理中...`);
+  console.log(`  📊 ${sources.length}件の未処理ソースを検出`);
 
   const processedKeys = new Set<string>();
   
@@ -190,16 +200,21 @@ const rankTopics = async () => {
     Promise.resolve<Topic[]>([])
   );
 
-  // トピックを保存
+  // トピックを保存（スコアの高い順に制限）
   if (topics.length > 0) {
+    // スコアの高い順にソートして制限
+    const topTopics = topics
+      .sort((a: Topic, b: Topic) => b.score - a.score)
+      .slice(0, TARGET_ARTICLE_COUNT);
+    
     const { error: insertError } = await supabaseAdmin
       .from('topics')
-      .insert(topics);
+      .insert(topTopics);
 
     if (insertError) {
       console.error('トピック保存エラー:', insertError);
     } else {
-      console.log(`${topics.length}件のトピックを保存しました`);
+      console.log(`${topTopics.length}件のトピックを保存しました (最大${TARGET_ARTICLE_COUNT}件に制限)`);
     }
   }
 

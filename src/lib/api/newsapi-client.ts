@@ -44,7 +44,7 @@ type AllOptions = {
 export class NewsApiClient {
   private readonly baseUrl = 'https://api.thenewsapi.com/v1';
   private readonly apiToken = process.env.NEWS_API_KEY!;
-  private readonly maxLimit = 3; // 無料プランの制限
+  private readonly maxLimit = Number.parseInt(process.env.NEWS_TOP_LIMIT_MAX ?? '25', 10);
   private readonly defaultDelay = 1000; // 1秒
 
   async fetchTopHeadlines(options: TopHeadlinesOptions = {}): Promise<readonly SourceItem[]> {

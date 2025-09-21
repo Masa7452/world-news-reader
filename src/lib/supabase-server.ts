@@ -100,16 +100,18 @@ export const getArticleBySlug = async (slug: string) => {
 };
 
 /**
- * カテゴリー一覧と記事数を取得
+ * カテゴリー一覧と記事数を取得（最適化版）
+ * 必要最小限のフィールドのみ取得してパフォーマンスを改善
  */
 export const getCategoriesWithCount = async () => {
   const supabase = createServerSupabaseClient();
   
-  // Supabaseでは直接のGROUP BYが難しいため、全記事を取得して集計
+  // categoryフィールドのみ取得して転送量を削減
   const { data, error } = await supabase
     .from('articles')
     .select('category')
-    .eq('status', 'PUBLISHED');
+    .eq('status', 'PUBLISHED')
+    .not('category', 'is', null); // NULL値を除外
   
   if (error) {
     console.error('Error fetching categories:', error);
@@ -125,8 +127,8 @@ export const getCategoriesWithCount = async () => {
     return acc;
   }, {} as Record<string, number>);
   
-  return Object.entries(categoryCount).map(([name, count]) => ({
-    name,
-    count
-  }));
+  // カウントの多い順にソート
+  return Object.entries(categoryCount)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => Number(b.count) - Number(a.count));
 };

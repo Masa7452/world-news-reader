@@ -12,16 +12,16 @@ export type Provider = 'newsapi';
 
 /** 記事のジャンル */
 export type Genre = 
-  | 'news'
-  | 'health'
-  | 'product'
-  | 'trend'
-  | 'glossary'
   | 'technology'
-  | 'lifestyle'
-  | 'culture'
   | 'business'
-  | 'science';
+  | 'science'
+  | 'health'
+  | 'sports'
+  | 'entertainment'
+  | 'culture'
+  | 'lifestyle'
+  | 'politics'
+  | 'other';
 
 /** トピックのステータス */
 export type TopicStatus = 
@@ -136,18 +136,18 @@ export type ArticleSource = {
 export type Article = {
   readonly id: string;                    // UUID
   readonly slug: string;                  // URLスラッグ
-  readonly topicId?: string;              // トピックID（参照）
+  readonly topic_id?: string;             // トピックID（参照）
   readonly title: string;                 // 記事タイトル
   readonly summary: readonly string[];    // 要点リスト
-  readonly bodyMdx: string;               // MDX形式の本文
+  readonly body_mdx: string;              // MDX形式の本文
   readonly category: string;              // カテゴリー
   readonly tags: readonly string[];       // タグ
   readonly sources: readonly ArticleSource[];  // 出典情報
-  readonly imageUrl?: string;             // サムネイル画像URL
+  readonly image_url?: string;            // サムネイル画像URL
   readonly status: ArticleStatus;         // ステータス
-  readonly createdAt: string;             // 作成日時
-  readonly updatedAt: string;             // 更新日時
-  readonly publishedAt?: string;          // 公開日時
+  readonly created_at: string;            // 作成日時
+  readonly updated_at: string;            // 更新日時
+  readonly published_at?: string;         // 公開日時
 };
 
 // ========================================

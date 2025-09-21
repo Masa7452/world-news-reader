@@ -5,6 +5,14 @@ import { ThemeProvider } from "@/components/theme-provider";
 export const metadata: Metadata = {
   title: "World News Reader - 世界の話題をゆっくり知ろう",
   description: "コーヒーブレイクのようなゆったりとした時間に、世界の興味深い話題を楽しめる空間",
+  icons: {
+    icon: [
+      {
+        url: '/icon.svg',
+        type: 'image/svg+xml',
+      },
+    ],
+  },
 };
 
 export default function RootLayout({

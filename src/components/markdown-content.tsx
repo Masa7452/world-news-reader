@@ -2,6 +2,39 @@
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkDirective from 'remark-directive';
+import { visit } from 'unist-util-visit';
+import type { Plugin } from 'unified';
+import type { Node } from 'unist';
+
+// カスタムディレクティブ（:::source）を処理するプラグイン
+const remarkCustomDirectives: Plugin = () => {
+  return (tree) => {
+    visit(tree, (node: Node) => {
+      if (
+        node.type === 'containerDirective' ||
+        node.type === 'leafDirective' ||
+        node.type === 'textDirective'
+      ) {
+        const data = node.data || (node.data = {});
+        // hastプロパティはunist-util-directiveの拡張型
+        interface DirectiveData {
+          hast?: Record<string, unknown>;
+        }
+        const extendedData = data as DirectiveData;
+        const hast = extendedData.hast || (extendedData.hast = {});
+        
+        // @ts-expect-error - node.nameはディレクティブ専用のプロパティ
+        if (node.name === 'source') {
+          hast.tagName = 'div';
+          hast.properties = {
+            className: ['source-block'],
+          };
+        }
+      }
+    });
+  };
+};
 
 interface MarkdownContentProps {
   content: string;
@@ -9,6 +42,12 @@ interface MarkdownContentProps {
 }
 
 export const MarkdownContent = ({ content, className = "" }: MarkdownContentProps) => {
+  // :::sourceブロックを完全に除去（記事本文には含めない）
+  const processedContent = content.replace(
+    /:::source[\s\S]*?:::/g,
+    ''
+  ).trim();
+  
   return (
     <div className={`prose prose-lg dark:prose-invert max-w-none ${className}`}>
       <ReactMarkdown
@@ -38,7 +77,7 @@ export const MarkdownContent = ({ content, className = "" }: MarkdownContentProp
         em: ({ children }) => <em className="italic">{children}</em>,
         }}
       >
-        {content}
+        {processedContent}
       </ReactMarkdown>
     </div>
   );

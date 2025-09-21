@@ -42,9 +42,12 @@ export default async function ArticlePage({
   }
 
   const article = convertSupabaseArticle(supabaseArticle);
-  // DBのcategoryは英字キー（'technology'など）として保存されている
-  const categoryKey = article.category as CategoryKey;
-  const categoryInfo = (categoryKey in CATEGORIES) ? CATEGORIES[categoryKey] : null;
+  // カテゴリーの安全な取得とフォールバック
+  const categoryKey = article.category && (article.category as CategoryKey in CATEGORIES) 
+    ? article.category as CategoryKey 
+    : null;
+  const categoryInfo = categoryKey ? CATEGORIES[categoryKey] : null;
+  const displayCategory = categoryInfo?.name || article.category || 'その他';
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
@@ -61,8 +64,8 @@ export default async function ArticlePage({
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink href={`/tags/${(categoryKey in CATEGORIES) ? categoryKey : 'all'}`}>
-                {categoryInfo?.name || article.category}
+              <BreadcrumbLink href={`/tags/${categoryKey || 'all'}`}>
+                {displayCategory}
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
@@ -98,7 +101,7 @@ export default async function ArticlePage({
               </div>
               <div className="flex items-center gap-1">
                 <BookOpen className="h-4 w-4" />
-                {article.category}
+                {displayCategory}
               </div>
               <div className="ml-auto">
                 <ArticleShare title={article.title} url={`/news/${article.slug}`} />
@@ -109,12 +112,12 @@ export default async function ArticlePage({
           <Separator className="mb-8" />
 
           {/* サマリー */}
-          {article.summary.length > 0 && (
+          {article.summary && (Array.isArray(article.summary) ? article.summary.length > 0 : true) && (
             <div className="mb-8 p-6 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900">
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles className="h-5 w-5 text-amber-600" />
                 <h2 className="font-semibold text-amber-900 dark:text-amber-100">
-                  この記事のポイント
+                  この記事の要点
                 </h2>
               </div>
               <ul className="space-y-2">
@@ -128,34 +131,23 @@ export default async function ArticlePage({
             </div>
           )}
 
+          {/* 参考記事（ポイントの直後に配置） */}
+          {article.sources[0]?.url && (
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <ExternalLink className="h-5 w-5 text-blue-600" />
+                <h3 className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>
+                  元記事
+                </h3>
+              </div>
+              <ExternalEmbed url={article.sources[0].url} />
+            </div>
+          )}
+
           {/* 本文 */}
           <div className="prose prose-lg dark:prose-invert max-w-none mb-8">
             <MarkdownContent content={article.body_mdx} />
           </div>
-
-          {/* 出典 */}
-          {article.sources.length > 0 && (
-            <div className="mb-8">
-              <Separator className="mb-6" />
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <ExternalLink className="h-5 w-5" />
-                出典・参考資料
-              </h2>
-              <div className="space-y-3">
-                <ArticleSourceInfo 
-                  sources={article.sources} 
-                  publishedDate={article.published_at || article.created_at} 
-                />
-              </div>
-            </div>
-          )}
-
-          {/* 外部埋め込み（必要に応じて） */}
-          {article.sources[0]?.url && (
-            <div className="mb-8">
-              <ExternalEmbed url={article.sources[0].url} />
-            </div>
-          )}
 
           {/* フッターシェア */}
           <div className="mt-12 p-6 rounded-lg bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border border-amber-200 dark:border-amber-900">

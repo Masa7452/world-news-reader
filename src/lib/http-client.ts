@@ -23,7 +23,9 @@ export class HttpClient {
         }
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          const errorText = await response.text();
+          const detail = errorText ? ` - ${errorText}` : '';
+          throw new Error(`HTTP ${response.status}: ${response.statusText}${detail}`);
         }
 
         return await response.json() as T;

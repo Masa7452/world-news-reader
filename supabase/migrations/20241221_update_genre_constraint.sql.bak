@@ -1,0 +1,37 @@
+-- topics テーブルの genre カラムの CHECK 制約を更新
+-- 10個の固定カテゴリーに対応
+
+-- 既存の制約を削除
+ALTER TABLE topics DROP CONSTRAINT IF EXISTS topics_genre_check;
+
+-- 新しい制約を追加（10カテゴリー対応）
+ALTER TABLE topics ADD CONSTRAINT topics_genre_check 
+CHECK (genre IN (
+  'technology',
+  'business',
+  'science',
+  'health',
+  'sports',
+  'entertainment',
+  'culture',
+  'lifestyle',
+  'politics',
+  'other'
+));
+
+-- articles テーブルの category カラムも同様に更新（存在する場合）
+ALTER TABLE articles DROP CONSTRAINT IF EXISTS articles_category_check;
+
+ALTER TABLE articles ADD CONSTRAINT articles_category_check 
+CHECK (category IN (
+  'technology',
+  'business',
+  'science',
+  'health',
+  'sports',
+  'entertainment',
+  'culture',
+  'lifestyle',
+  'politics',
+  'other'
+));

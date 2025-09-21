@@ -15,6 +15,9 @@ import fs from 'fs';
 // 環境変数を読み込み
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
+// 記事生成の最大件数（デフォルト: 5）
+const TARGET_ARTICLE_COUNT = parseInt(process.env.TARGET_ARTICLE_COUNT || '5', 10);
+
 // Supabase Admin Client
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,8 +30,17 @@ const supabaseAdmin = createClient(
   }
 );
 
+// トピック型定義
+interface TopicForVerification {
+  id: string;
+  title: string;
+  url: string;
+  abstract?: string;
+  genre: string;
+}
+
 // Gemini APIで検証処理
-const verifyContent = async (content: string, topic: any): Promise<VerificationResult> => {
+const verifyContent = async (content: string, topic: TopicForVerification): Promise<VerificationResult> => {
   const issues: VerificationIssue[] = [];
   const suggestions: string[] = [];
 
@@ -105,7 +117,7 @@ const saveVerificationResult = async (result: VerificationResult, filename: stri
   const issuesFile = path.join(metaDir, 'issues.json');
   
   // 既存の検証結果を読み込み
-  let allIssues: any[] = [];
+  let allIssues: Array<{ filename: string; timestamp: string; result: VerificationResult }> = [];
   if (fs.existsSync(issuesFile)) {
     const existing = JSON.parse(fs.readFileSync(issuesFile, 'utf-8'));
     allIssues = Array.isArray(existing) ? existing : [];
@@ -115,7 +127,7 @@ const saveVerificationResult = async (result: VerificationResult, filename: stri
   const issueRecord = {
     filename,
     timestamp: new Date().toISOString(),
-    ...result
+    result
   };
 
   allIssues.push(issueRecord);
@@ -125,65 +137,89 @@ const saveVerificationResult = async (result: VerificationResult, filename: stri
   console.log(`📋 検証結果を保存: meta/issues.json`);
 };
 
-// ドラフトファイルの取得
-const getDraftFiles = async (): Promise<string[]> => {
-  const draftsDir = path.join(process.cwd(), 'content', 'drafts');
-  if (!fs.existsSync(draftsDir)) {
+// DRAFTステータスの記事を取得（校正済みのもの）
+const getDraftArticles = async () => {
+  const { data: draftArticles, error } = await supabaseAdmin
+    .from('articles')
+    .select(`
+      id, slug, body_mdx, topic_id,
+      topics!inner(id, title, url, published_at, abstract, genre)
+    `)
+    .eq('status', 'DRAFT')
+    .limit(TARGET_ARTICLE_COUNT);
+
+  if (error) {
+    console.error('  ❌ ドラフト記事取得エラー:', error.message);
     return [];
   }
 
-  return fs.readdirSync(draftsDir)
-    .filter(file => file.endsWith('.mdx'))
-    .map(file => path.join(draftsDir, file));
+  return draftArticles || [];
 };
 
 const verifyPosts = async () => {
   console.log('記事検証を開始...');
+  console.log(`  🎯 最大処理数: ${TARGET_ARTICLE_COUNT}件`);
 
-  const draftFiles = await getDraftFiles();
-  console.log(`${draftFiles.length}件のドラフトを検証中...`);
+  const draftArticles = await getDraftArticles();
+  console.log(`  📋 ${draftArticles.length}件のドラフト記事を検証中...`);
 
-  const results = await draftFiles.reduce(
-    async (prevPromise, filepath) => {
+  const results = await draftArticles.reduce(
+    async (prevPromise, article) => {
       const prev = await prevPromise;
       
       try {
-        // ファイル内容を読み込み
-        const content = fs.readFileSync(filepath, 'utf-8');
-        const filename = path.basename(filepath, '.mdx');
+        console.log(`🔍 検証開始: ${article.slug}`);
         
-        // 対応するトピック情報を取得
-        const { data: topic } = await supabaseAdmin
-          .from('topics')
-          .select('*')
-          .eq('status', 'VERIFIED')
-          .ilike('title', `%${filename.replace(/-/g, ' ')}%`)
-          .single();
-
+        // 記事に紐づくトピック情報を取得
+        const topic = Array.isArray(article.topics) ? article.topics[0] : article.topics;
+        
         if (!topic) {
-          console.warn(`トピックが見つかりません: ${filename}`);
+          console.warn(`トピックが見つかりません: ${article.topic_id}`);
           return prev;
         }
 
         // 検証実行
-        const verificationResult = await verifyContent(content, topic);
+        const verificationResult = await verifyContent(article.body_mdx, topic);
         
         // 結果を保存
-        await saveVerificationResult(verificationResult, filename);
+        await saveVerificationResult(verificationResult, article.slug);
         
         // 検証結果をログ出力
         if (verificationResult.isValid) {
-          console.log(`✅ 検証通過: ${filename}`);
+          console.log(`✅ 検証通過: ${article.slug} (topic: ${article.topic_id})`);
+          
+          // 検証が通った場合、記事のステータスをVERIFIEDに更新
+          const { error: updateError } = await supabaseAdmin
+            .from('articles')
+            .update({ 
+              status: 'VERIFIED',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', article.id);
+            
+          // トピックのステータスもVERIFIEDに更新
+          if (!updateError) {
+            await supabaseAdmin
+              .from('topics')
+              .update({ status: 'VERIFIED' })
+              .eq('id', article.topic_id);
+            console.log(`  📝 トピックステータスを VERIFIED に更新`);
+          } else {
+            console.error(`  ❌ ステータス更新エラー: ${updateError.message}`);
+          }
         } else {
-          console.log(`⚠️  検証失敗: ${filename}`);
+          console.log(`⚠️  検証失敗: ${article.slug} (topic: ${article.topic_id})`);
           verificationResult.issues.forEach(issue => {
             console.log(`   ${issue.type}: ${issue.message}`);
           });
+          
+          // 検証失敗の場合、記事ステータスをDRAFTのまま維持
+          console.log(`  ⏭️  記事は引き続きDRAFTステータス: ${article.slug}`);
         }
 
         return prev + 1;
       } catch (error) {
-        console.error(`ファイル ${filepath} の処理エラー:`, error);
+        console.error(`記事 ${article.slug} の処理エラー:`, error);
         return prev;
       }
     },

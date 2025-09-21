@@ -11,8 +11,8 @@
  *   --dry-run          実際のDB操作を行わず、動作確認のみ
  *   --skip-fetch       記事取得をスキップ（既存データを使用）
  *   --only-rank        トピック選定まで実行（ドラフト生成以降をスキップ）
- *   --days N           N日間のデータを取得（デフォルト: 1）
- *   --query "keyword"  検索クエリを指定
+ *   --categories "business,tech"  取得するカテゴリを指定
+ *   --mode MODE        実行モード（local | production）デフォルト: production
  * 
  * 環境変数:
  *   NEWS_API_KEY       TheNewsAPI のAPIキー（必須）
@@ -36,6 +36,15 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
 const execAsync = promisify(exec);
 
+// 型定義
+type PipelineMode = 'local' | 'production';
+// TODO(phase7): 'staging' モードを追加予定
+
+interface SupabaseConfig {
+  readonly url: string;
+  readonly serviceRoleKey: string;
+}
+
 // CLIオプションの解析
 const parseCliArgs = () => {
   const args = process.argv.slice(2);
@@ -43,8 +52,9 @@ const parseCliArgs = () => {
     dryRun: false,
     skipFetch: false,
     onlyRank: false,
-    days: 1,
-    query: undefined as string | undefined
+    categories: undefined as string | undefined,
+    limit: undefined as string | undefined,
+    mode: 'production' as PipelineMode  // デフォルトはproduction
   };
 
   args.forEach((arg, index) => {
@@ -57,15 +67,72 @@ const parseCliArgs = () => {
     if (arg === '--only-rank') {
       options.onlyRank = true;
     }
-    if (arg === '--days' && args[index + 1]) {
-      options.days = parseInt(args[index + 1], 10) || 1;
+    if (arg === '--categories' && args[index + 1]) {
+      options.categories = args[index + 1];
     }
-    if (arg === '--query' && args[index + 1]) {
-      options.query = args[index + 1];
+    if (arg === '--limit' && args[index + 1]) {
+      options.limit = args[index + 1];
+    }
+    if (arg === '--mode' && args[index + 1]) {
+      const mode = args[index + 1];
+      if (mode === 'local' || mode === 'production') {
+        options.mode = mode;
+      } else {
+        console.warn(`Invalid mode: ${mode}. Using 'production' as default.`);
+      }
     }
   });
 
   return options;
+};
+
+
+// Supabase設定の解決
+const resolveSupabaseConfig = (mode: PipelineMode): SupabaseConfig => {
+  switch (mode) {
+    case 'local': {
+      // TODO(phase7): 環境変数から実際の値を読み込む
+      const localUrl = process.env.SUPABASE_LOCAL_URL || 'http://localhost:54321';
+      const localServiceKey = process.env.SUPABASE_LOCAL_SERVICE_ROLE_KEY || '';
+      
+      if (!localServiceKey) {
+        console.warn('SUPABASE_LOCAL_SERVICE_ROLE_KEY not set for local mode');
+      }
+      
+      return {
+        url: localUrl,
+        serviceRoleKey: localServiceKey
+      };
+    }
+    
+    case 'production': {
+      // TODO(phase7): 環境変数から実際の値を読み込む
+      const prodUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+      const prodServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+      
+      if (!prodUrl || !prodServiceKey) {
+        throw new Error('Production Supabase credentials not configured');
+      }
+      
+      return {
+        url: prodUrl,
+        serviceRoleKey: prodServiceKey
+      };
+    }
+    
+    // TODO(phase7): staging モードのサポートを追加
+    // case 'staging': {
+    //   const stagingUrl = process.env.SUPABASE_STAGING_URL || '';
+    //   const stagingServiceKey = process.env.SUPABASE_STAGING_SERVICE_ROLE_KEY || '';
+    //   return { url: stagingUrl, serviceRoleKey: stagingServiceKey };
+    // }
+    
+    default: {
+      // TypeScriptの網羅性チェック
+      const _exhaustive: never = mode;
+      throw new Error(`Unsupported mode: ${_exhaustive}`);
+    }
+  }
 };
 
 // スクリプト実行のヘルパー（メトリクス収集機能付き）
@@ -100,6 +167,26 @@ const runPipeline = async () => {
   if (options.dryRun) {
     console.log('🧪 Dry-runモード: 実際のDB操作は行いません');
   }
+  
+  // モードの表示
+  console.log(`📋 実行モード: ${options.mode}`);
+  
+  // Supabase設定の解決
+  let supabaseConfig: SupabaseConfig | null = null;
+  if (!options.dryRun) {
+    try {
+      supabaseConfig = resolveSupabaseConfig(options.mode);
+      console.log(`🗄️  Supabase URL: ${supabaseConfig.url}`);
+    } catch (error) {
+      console.error('❌ Supabase設定の解決に失敗:', error);
+      // localモードの場合は警告のみ
+      if (options.mode === 'local') {
+        console.warn('⚠️  ローカルモードでSupabase設定が不足していますが、続行します');
+      } else {
+        process.exit(1);
+      }
+    }
+  }
 
   // NEWS_API_KEY のチェック
   if (!process.env.NEWS_API_KEY && !options.skipFetch && !options.dryRun) {
@@ -112,10 +199,18 @@ const runPipeline = async () => {
   try {
     // 1. データ取得
     if (!options.skipFetch) {
-      console.log('\n📰 Step 1: ニュース記事取得');
+      console.log('\n📰 Step 1: ニュース記事取得（カテゴリベース）');
+
+      const categoriesArg = options.categories ?? process.env.NEWS_TOP_CATEGORIES;
+      const limitArg = options.limit ?? process.env.NEWS_TOP_LIMIT;
+      const localeEnv = process.env.NEWS_TOP_LOCALE;
+      const languageEnv = process.env.NEWS_TOP_LANGUAGE;
+
       const fetchArgs = [
-        '--days', options.days.toString(),
-        ...(options.query ? ['--query', options.query] : []),
+        ...(categoriesArg ? ['--categories', categoriesArg] : []),
+        ...(limitArg ? ['--limit', limitArg] : []),
+        ...(localeEnv ? ['--locale', localeEnv] : []),
+        ...(languageEnv ? ['--language', languageEnv] : []),
         ...(options.dryRun ? ['--dry-run'] : [])
       ];
       
@@ -167,7 +262,7 @@ const runPipeline = async () => {
         await logWithNotification('info', 'アウトライン生成完了');
       } catch (error) {
         metrics.errors.push('アウトライン生成失敗');
-        console.warn('⚠️ アウトライン生成でエラーが発生しましたが、処理を継続します');
+        console.warn('⚠️ アウトライン生成でエラーが発生しましたが、処理を継続します', error);
       }
     } else {
       console.log('   Dry-run: アウトライン生成をスキップ');
@@ -182,7 +277,7 @@ const runPipeline = async () => {
         await logWithNotification('success', `ドラフト生成完了: ${metrics.generatedDrafts}件`);
       } catch (error) {
         metrics.errors.push('ドラフト生成失敗');
-        console.warn('⚠️ ドラフト生成でエラーが発生しましたが、処理を継続します');
+        console.warn('⚠️ ドラフト生成でエラーが発生しましたが、処理を継続します', error);
       }
     } else {
       console.log('   Dry-run: ドラフト生成をスキップ');
@@ -196,7 +291,7 @@ const runPipeline = async () => {
         await logWithNotification('info', '記事校正完了');
       } catch (error) {
         metrics.errors.push('記事校正失敗');
-        console.warn('⚠️ 記事校正でエラーが発生しましたが、処理を継続します');
+        console.warn('⚠️ 記事校正でエラーが発生しましたが、処理を継続します', error);
       }
     } else {
       console.log('   Dry-run: 記事校正をスキップ');
@@ -210,7 +305,7 @@ const runPipeline = async () => {
         await logWithNotification('info', '記事検証完了');
       } catch (error) {
         metrics.errors.push('記事検証失敗');
-        console.warn('⚠️ 記事検証でエラーが発生しましたが、処理を継続します');
+        console.warn('⚠️ 記事検証でエラーが発生しましたが、処理を継続します', error);
       }
     } else {
       console.log('   Dry-run: 記事検証をスキップ');
@@ -265,12 +360,12 @@ TheNewsAPI記事生成パイプライン
   --dry-run          実際のDB操作を行わず、動作確認のみ
   --skip-fetch       記事取得をスキップ
   --only-rank        トピック選定まで実行
-  --days N           N日間のデータを取得（デフォルト: 1）
-  --query "keyword"  検索クエリを指定
+  --categories "business,tech"  取得カテゴリを指定
+  --limit 10         取得件数を指定（/news/top の limit）
 
 例:
   pnpm tsx scripts/pipeline.ts --dry-run
-  pnpm tsx scripts/pipeline.ts --days 3 --query "technology"
+  pnpm tsx scripts/pipeline.ts --categories "technology,science" --limit 8
   pnpm tsx scripts/pipeline.ts --only-rank --skip-fetch
 `);
 };
